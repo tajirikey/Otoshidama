@@ -380,6 +380,7 @@
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:10px;
+      align-items: start;
     }
     .field{
       display:flex;
@@ -607,8 +608,8 @@
         return {
           version: 1,
           accounts: [
-            { id: "a", name: "子どもA" },
-            { id: "b", name: "子どもB" },
+            { id: "a", name: "さや" },
+            { id: "b", name: "せいや" },
           ],
           activeAccountId: "a",
           transactions: [] // {id, accountId, type, date, amount, category, memo, createdAt}
@@ -625,6 +626,13 @@
           parsed.accounts = parsed.accounts?.length ? parsed.accounts : defaultData().accounts;
           parsed.activeAccountId = parsed.activeAccountId || "a";
           parsed.transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
+
+          // アカウント名を新しい名前に更新（マイグレーション）
+          if(parsed.accounts.length >= 2){
+            parsed.accounts[0].name = "さや";
+            parsed.accounts[1].name = "せいや";
+          }
+
           return parsed;
         }catch(e){
           return defaultData();
