@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>お年玉管理（2アカウント）</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#111a2e;
+      --card2:#0f172a;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#60a5fa;
+      --danger:#fb7185;
+      --ok:#34d399;
+      --border:rgba(148,163,184,.18);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+      --pad:16px;
+      --safeTop: env(safe-area-inset-top, 0px);
+      --safeBottom: env(safe-area-inset-bottom, 0px);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif;
+      color:var(--text);
+      background: radial-gradient(1200px 900px at 10% 0%, #0e1b3a 0%, var(--bg) 55%) fixed;
+    }
+    a{color:inherit}
+    .wrap{
+      max-width: 720px;
+      margin: 0 auto;
+      padding: calc(var(--safeTop) + 14px) 14px calc(var(--safeBottom) + 22px);
+    }
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+    .title{
+      display:flex; flex-direction:column; gap:4px;
+    }
+    .title h1{
+      font-size:18px; margin:0; letter-spacing:.2px;
+    }
+    .title .sub{
+      font-size:12px; color:var(--muted);
+    }
+    .seg{
+      display:inline-flex;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow:hidden;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
+    }
+    .seg button{
+      appearance:none;
+      border:0;
+      background:transparent;
+      color:var(--muted);
+      padding:10px 12px;
+      font-weight:600;
+      font-size:13px;
+      cursor:pointer;
+      min-width:86px;
+    }
+    .seg button.active{
+      color:var(--text);
+      background: rgba(96,165,250,.18);
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .card .inner{padding: var(--pad);}
+    .balance{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .balance .label{color:var(--muted); font-size:12px; margin-bottom:6px;}
+    .balance .amount{
+      font-size:34px;
+      font-weight:800;
+      letter-spacing: .2px;
+      line-height: 1.05;
+      word-break: break-word;
+    }
+    .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(255,255,255,.04);
+      white-space:nowrap;
+    }
+    .stats{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top: 12px;
+    }
+    .stat{
+      background: rgba(0,0,0,.18);
+      border:1px solid var(--border);
+      border-radius: 14px;
+      padding:12px;
+    }
+    .stat .k{font-size:12px;color:var(--muted); margin-bottom:6px;}
+    .stat .v{font-size:16px;font-weight:750;}
+    .v.income{color:var(--ok)}
+    .v.expense{color:var(--danger)}
+    .actions{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin: 12px 0 0;
+    }
+    .btn{
+      appearance:none;
+      border:0;
+      cursor:pointer;
+      border-radius: 14px;
+      padding: 12px 12px;
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing:.1px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn.primary{
+      background: rgba(96,165,250,.22);
+      border-color: rgba(96,165,250,.35);
+    }
+    .btn.danger{
+      background: rgba(251,113,133,.16);
+      border-color: rgba(251,113,133,.28);
+      color: #fecdd3;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.small{padding:10px 10px;font-size:13px;border-radius:12px}
+    .btn.ghost{
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+      font-weight:700;
+    }
+
+    .section{
+      margin-top: 14px;
+    }
+    .section h2{
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 800;
+      letter-spacing:.2px;
+    }
+
+    .list{
+      overflow:hidden;
+    }
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,.10);
+      cursor:pointer;
+    }
+    .row:first-child{border-top:0}
+    .row .left{
+      display:flex; flex-direction:column; gap:4px;
+      min-width: 0;
+    }
+    .row .topline{
+      display:flex; gap:10px; align-items:baseline;
+      min-width:0;
+    }
+    .date{
+      font-size:12px;
+      color: var(--muted);
+      min-width: 52px;
+      flex: 0 0 auto;
+    }
+    .cat{
+      font-size:12px;
+      padding: 3px 8px;
+      border:1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255,255,255,.03);
+      flex: 0 0 auto;
+    }
+    .memo{
+      font-size:14px;
+      font-weight:700;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width: 52vw;
+    }
+    .row .amt{
+      font-size:14px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .amt.income{color:var(--ok)}
+    .amt.expense{color:var(--danger)}
+
+    .toolbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .chips{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .chip{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      padding:8px 10px;
+      border-radius:999px;
+      font-weight:800;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .chip.active{
+      color: var(--text);
+      background: rgba(96,165,250,.18);
+      border-color: rgba(96,165,250,.35);
+    }
+
+    .footerline{
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size:12px;
+    }
+
+    /* Modal */
+    .overlay{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:flex-end;
+      justify-content:center;
+      padding: 12px 12px calc(var(--safeBottom) + 12px);
+      z-index: 50;
+    }
+    .overlay.show{display:flex}
+    .sheet{
+      width: min(720px, 100%);
+      background: linear-gradient(180deg, rgba(17,26,46,.98), rgba(15,23,42,.98));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .sheet header{
+      margin:0;
+      padding: 12px 14px;
+      border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+      background: rgba(0,0,0,.10);
+    }
+    .sheet header .h{
+      font-weight:900;
+      font-size:14px;
+    }
+    .sheet header .x{
+      appearance:none;border:0;background:transparent;color:var(--muted);
+      font-size:18px;font-weight:900;cursor:pointer;padding:6px 8px;border-radius:10px;
+    }
+    .sheet .body{padding:14px}
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-bottom:10px;
+    }
+    .field label{
+      font-size:12px;
+      color: var(--muted);
+      font-weight:800;
+    }
+    input, select, textarea{
+      width:100%;
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.20);
+      color: var(--text);
+      font-size: 15px;
+      outline:none;
+    }
+    textarea{min-height: 82px; resize: vertical;}
+    input::placeholder, textarea::placeholder{color: rgba(148,163,184,.7)}
+    .sheet .actionsRow{
+      display:flex; gap:10px;
+      padding: 0 14px 14px;
+    }
+    .sheet .actionsRow .btn{flex:1}
+    .hint{
+      margin-top:8px;
+      font-size:12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .divider{
+      height:1px;
+      background: var(--border);
+      margin: 12px 0;
+    }
+
+    /* small top alert */
+    .toast{
+      position: fixed;
+      top: calc(var(--safeTop) + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(17,26,46,.92);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 12px;
+      color: var(--text);
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      font-weight: 800;
+      display:none;
+      z-index: 60;
+      max-width: calc(100% - 24px);
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .toast.show{display:block}
+
+    @media (max-width: 420px){
+      .balance .amount{font-size: 30px}
+      .memo{max-width: 48vw}
+      .seg button{min-width:80px}
+    }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>お年玉管理</h1>
+        <div class="sub">端末内保存（ログインなし）</div>
+      </div>
+
+      <div class="seg" id="accountSeg">
+        <button type="button" data-account="a">子どもA</button>
+        <button type="button" data-account="b">子どもB</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="inner">
+        <div class="balance">
+          <div>
+            <div class="label">あといくら</div>
+            <div class="amount" id="balanceAmt">¥0</div>
+          </div>
+          <div class="badge" id="periodBadge">今年</div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="k">入金合計</div>
+            <div class="v income" id="incomeSum">¥0</div>
+          </div>
+          <div class="stat">
+            <div class="k">支出合計</div>
+            <div class="v expense" id="expenseSum">¥0</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="addIncomeBtn">入金を追加</button>
+          <button class="btn" id="addExpenseBtn">支出を追加</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="toolbar">
+        <h2 style="margin:0">明細</h2>
+        <button class="btn small ghost" id="openAllBtn">一覧を見る</button>
+      </div>
+
+      <div class="card list" id="recentList">
+        <!-- rows -->
+      </div>
+
+      <div class="footerline">
+        <div id="countInfo">0件</div>
+        <button class="btn small ghost" id="backupBtn">バックアップ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add/Edit -->
+  <div class="overlay" id="modalOverlay" aria-hidden="true">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header>
+        <div class="h" id="modalTitle">入力</div>
+        <button class="x" id="closeModalBtn" aria-label="閉じる">×</button>
+      </header>
+      <div class="body" id="modalBody">
+        <!-- dynamic -->
+      </div>
+      <div class="actionsRow" id="modalActions">
+        <!-- dynamic -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = "otd_money_v1";
+      const fmtJPY = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
+
+      const el = (id) => document.getElementById(id);
+
+      const state = {
+        data: null,
+        viewPeriod: "year", // year | month | all
+        viewMode: "home",   // home | list
+      };
+
+      function todayISO(){
+        const d = new Date();
+        const z = (n)=>String(n).padStart(2,"0");
+        return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
+      }
+
+      function monthKey(dateISO){ // YYYY-MM
+        return (dateISO || "").slice(0,7);
+      }
+      function yearKey(dateISO){
+        return (dateISO || "").slice(0,4);
+      }
+
+      function uid(){
+        return Math.random().toString(16).slice(2) + Date.now().toString(16);
+      }
+
+      function defaultData(){
+        return {
+          version: 1,
+          accounts: [
+            { id: "a", name: "子どもA" },
+            { id: "b", name: "子どもB" },
+          ],
+          activeAccountId: "a",
+          transactions: [] // {id, accountId, type, date, amount, category, memo, createdAt}
+        };
+      }
+
+      function load(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if(!raw) return defaultData();
+          const parsed = JSON.parse(raw);
+          if(!parsed || typeof parsed !== "object") return defaultData();
+          // 軽い補正
+          parsed.accounts = parsed.accounts?.length ? parsed.accounts : defaultData().accounts;
+          parsed.activeAccountId = parsed.activeAccountId || "a";
+          parsed.transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
+          return parsed;
+        }catch(e){
+          return defaultData();
+        }
+      }
+
+      function save(){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      }
+
+      function toast(msg){
+        const t = el("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        setTimeout(()=>t.classList.remove("show"), 1800);
+      }
+
+      function activeAccount(){
+        return state.data.accounts.find(a => a.id === state.data.activeAccountId) || state.data.accounts[0];
+      }
+
+      function filteredTx(accountId, period){
+        const tx = state.data.transactions.filter(t => t.accountId === accountId);
+        if(period === "all") return tx;
+        const now = new Date();
+        const nowY = String(now.getFullYear());
+        const nowM = String(now.getMonth()+1).padStart(2,"0");
+        const nowYM = `${nowY}-${nowM}`;
+        if(period === "year") return tx.filter(t => yearKey(t.date) === nowY);
+        if(period === "month") return tx.filter(t => monthKey(t.date) === nowYM);
+        return tx;
+      }
+
+      function sortTxDesc(list){
+        return [...list].sort((a,b) => {
+          if(a.date !== b.date) return a.date > b.date ? -1 : 1;
+          return (b.createdAt||"") > (a.createdAt||"") ? 1 : -1;
+        });
+      }
+
+      function sums(list){
+        let income = 0, expense = 0;
+        for(const t of list){
+          const amt = Number(t.amount)||0;
+          if(t.type === "income") income += amt;
+          else expense += amt;
+        }
+        return { income, expense, balance: income - expense };
+      }
+
+      function setActiveAccount(id){
+        state.data.activeAccountId = id;
+        save();
+        render();
+      }
+
+      function renderAccountSeg(){
+        const seg = el("accountSeg");
+        [...seg.querySelectorAll("button")].forEach(btn => {
+          const id = btn.dataset.account;
+          btn.classList.toggle("active", id === state.data.activeAccountId);
+          btn.textContent = state.data.accounts.find(a=>a.id===id)?.name ?? btn.textContent;
+          btn.onclick = () => setActiveAccount(id);
+        });
+      }
+
+      function periodLabel(){
+        if(state.viewPeriod === "year") return "今年";
+        if(state.viewPeriod === "month") return "今月";
+        return "全部";
+      }
+
+      function renderSummary(){
+        const a = activeAccount();
+        const list = filteredTx(a.id, state.viewPeriod);
+        const s = sums(list);
+
+        el("periodBadge").textContent = periodLabel();
+        el("balanceAmt").textContent = fmtJPY.format(s.balance);
+        el("incomeSum").textContent = fmtJPY.format(s.income);
+        el("expenseSum").textContent = fmtJPY.format(s.expense);
+
+        const totalCount = state.data.transactions.filter(t=>t.accountId===a.id).length;
+        el("countInfo").textContent = `${a.name}：${totalCount}件`;
+      }
+
+      function formatRowDate(dateISO){
+        if(!dateISO) return "";
+        // 表示は M/D
+        const m = Number(dateISO.slice(5,7));
+        const d = Number(dateISO.slice(8,10));
+        return `${m}/${d}`;
+      }
+
+      function renderRecent(){
+        const a = activeAccount();
+        const listAll = sortTxDesc(state.data.transactions.filter(t=>t.accountId===a.id));
+        const recent = listAll.slice(0,5);
+
+        const box = el("recentList");
+        box.innerHTML = "";
+        if(recent.length === 0){
+          const empty = document.createElement("div");
+          empty.className = "row";
+          empty.style.cursor = "default";
+          empty.innerHTML = `
+            <div class="left">
+              <div class="memo" style="max-width:100%">まだ記録がありません</div>
+              <div class="date">入金・支出を追加してください</div>
+            </div>
+            <div class="amt" style="color:var(--muted)">—</div>
+          `;
+          box.appendChild(empty);
+          return;
+        }
+
+        for(const t of recent){
+          const row = document.createElement("div");
+          row.className = "row";
+          row.onclick = () => openTxDetail(t.id);
+
+          const memo = (t.memo && t.memo.trim()) ? t.memo.trim() : (t.type === "income" ? "入金" : "支出");
+          const cat = (t.type === "expense" && t.category) ? t.category : (t.type === "income" ? "入金" : "支出");
+          const sign = t.type === "income" ? "+" : "-";
+          row.innerHTML = `
+            <div class="left">
+              <div class="topline">
+                <span class="date">${formatRowDate(t.date)}</span>
+                <span class="cat">${escapeHtml(cat)}</span>
+                <span class="memo">${escapeHtml(memo)}</span>
+              </div>
+            </div>
+            <div class="amt ${t.type}">${sign}${fmtJPY.format(Number(t.amount)||0)}</div>
+          `;
+          box.appendChild(row);
+        }
+      }
+
+      function escapeHtml(s){
+        return String(s ?? "")
+          .replaceAll("&","&amp;")
+          .replaceAll("<","&lt;")
+          .replaceAll(">","&gt;")
+          .replaceAll('"',"&quot;")
+          .replaceAll("'","&#039;");
+      }
+
+      function openModal(title, bodyNode, actionsNode){
+        el("modalTitle").textContent = title;
+        const body = el("modalBody");
+        const actions = el("modalActions");
+        body.innerHTML = "";
+        actions.innerHTML = "";
+        body.appendChild(bodyNode);
+        actions.appendChild(actionsNode);
+        el("modalOverlay").classList.add("show");
+        el("modalOverlay").setAttribute("aria-hidden","false");
+      }
+
+      function closeModal(){
+        el("modalOverlay").classList.remove("show");
+        el("modalOverlay").setAttribute("aria-hidden","true");
+      }
+
+      function openAdd(type){
+        const isIncome = type === "income";
+        const wrap = document.createElement("div");
+
+        const grid = document.createElement("div");
+        grid.className = "grid";
+
+        const fDate = field("日付", input("date", { value: todayISO() }));
+        const fAmt  = field("金額（円）", input("number", { placeholder: "例：3000", inputmode:"numeric", min:"0" }));
+
+        grid.appendChild(fDate);
+        grid.appendChild(fAmt);
+
+        wrap.appendChild(grid);
+
+        let fCat = null;
+        if(!isIncome){
+          const sel = document.createElement("select");
+          const cats = ["おもちゃ","本","ゲーム","おかし","外出","貯金","その他"];
+          for(const c of cats){
+            const opt = document.createElement("option");
+            opt.value = c; opt.textContent = c;
+            sel.appendChild(opt);
+          }
+          fCat = field("カテゴリ", sel);
+          wrap.appendChild(fCat);
+        }
+
+        const memo = document.createElement("textarea");
+        memo.placeholder = isIncome ? "メモ（例：じいじ、ばあば など）" : "メモ（例：レゴ、絵本 など）";
+        wrap.appendChild(field("メモ（任意）", memo));
+
+        const hint = document.createElement("div");
+        hint.className = "hint";
+        hint.textContent = "保存すると、残高と明細に反映されます。";
+        wrap.appendChild(hint);
+
+        const actions = document.createElement("div");
+        actions.style.display = "flex";
+        actions.style.gap = "10px";
+        actions.style.width = "100%";
+
+        const cancel = document.createElement("button");
+        cancel.className = "btn";
+        cancel.textContent = "キャンセル";
+        cancel.onclick = closeModal;
+
+        const saveBtn = document.createElement("button");
+        saveBtn.className = "btn primary";
+        saveBtn.textContent = "保存";
+        saveBtn.onclick = () => {
+          const date = fDate.querySelector("input").value || todayISO();
+          const amount = Number(fAmt.querySelector("input").value);
+          if(!Number.isFinite(amount) || amount <= 0){
+            toast("金額を入力してください");
+            return;
+          }
+          const tx = {
+            id: uid(),
+            accountId: state.data.activeAccountId,
+            type,
+            date,
+            amount: Math.floor(amount),
+            category: isIncome ? "" : (fCat.querySelector("select").value || ""),
+            memo: memo.value || "",
+            createdAt: new Date().toISOString()
+          };
+          state.data.transactions.push(tx);
+          save();
+          closeModal();
+          toast("保存しました");
+          render();
+        };
+
+        actions.appendChild(cancel);
+        actions.appendChild(saveBtn);
+
+        openModal(isIncome ? "入金を追加" : "支出を追加", wrap, actions);
+        // autofocus
+        setTimeout(()=>fAmt.querySelector("input").focus(), 50);
+      }
+
+      function openAllList(){
+        const a = activeAccount();
+        const wrap = document.createElement("div");
+
+        // toolbar in modal
+        const bar = document.createElement("div");
+        bar.className = "toolbar";
+        bar.style.marginBottom = "8px";
+
+        const chips = document.createElement("div");
+        chips.className = "chips";
+        const makeChip = (key, label) => {
+          const c = document.createElement("button");
+          c.type = "button";
+          c.className = "chip" + (state.viewPeriod === key ? " active":"");
+          c.textContent = label;
+          c.onclick = () => {
+            state.viewPeriod = key;
+            // 再描画（モーダルも更新）
+            closeModal();
+            openAllList();
+            render(); // ホーム側サマリーも合わせる
+          };
+          return c;
+        };
+        chips.appendChild(makeChip("year","今年"));
+        chips.appendChild(makeChip("month","今月"));
+        chips.appendChild(makeChip("all","全部"));
+
+        const right = document.createElement("div");
+        right.style.display = "flex";
+        right.style.gap = "8px";
+
+        const addIn = document.createElement("button");
+        addIn.className = "btn small primary";
+        addIn.textContent = "入金";
+        addIn.onclick = () => openAdd("income");
+
+        const addEx = document.createElement("button");
+        addEx.className = "btn small";
+        addEx.textContent = "支出";
+        addEx.onclick = () => openAdd("expense");
+
+        right.appendChild(addIn);
+        right.appendChild(addEx);
+
+        bar.appendChild(chips);
+        bar.appendChild(right);
+
+        wrap.appendChild(bar);
+
+        const listBox = document.createElement("div");
+        listBox.className = "card list";
+
+        const list = sortTxDesc(filteredTx(a.id, state.viewPeriod));
+        if(list.length === 0){
+          const empty = document.createElement("div");
+          empty.className = "row";
+          empty.style.cursor = "default";
+          empty.innerHTML = `
+            <div class="left">
+              <div class="memo" style="max-width:100%">この期間の記録がありません</div>
+              <div class="date">期間を切り替えるか、追加してください</div>
+            </div>
+            <div class="amt" style="color:var(--muted)">—</div>
+          `;
+          listBox.appendChild(empty);
+        }else{
+          for(const t of list){
+            const row = document.createElement("div");
+            row.className = "row";
+            row.onclick = () => openTxDetail(t.id);
+
+            const memo = (t.memo && t.memo.trim()) ? t.memo.trim() : (t.type === "income" ? "入金" : "支出");
+            const cat = (t.type === "expense" && t.category) ? t.category : (t.type === "income" ? "入金" : "支出");
+            const sign = t.type === "income" ? "+" : "-";
+            row.innerHTML = `
+              <div class="left">
+                <div class="topline">
+                  <span class="date">${formatRowDate(t.date)}</span>
+                  <span class="cat">${escapeHtml(cat)}</span>
+                  <span class="memo">${escapeHtml(memo)}</span>
+                </div>
+              </div>
+              <div class="amt ${t.type}">${sign}${fmtJPY.format(Number(t.amount)||0)}</div>
+            `;
+            listBox.appendChild(row);
+          }
+        }
+
+        wrap.appendChild(listBox);
+
+        const actions = document.createElement("div");
+        actions.style.display = "flex";
+        actions.style.gap = "10px";
+        actions.style.width = "100%";
+        const close = document.createElement("button");
+        close.className = "btn";
+        close.textContent = "閉じる";
+        close.onclick = closeModal;
+        actions.appendChild(close);
+
+        openModal(`${a.name}の明細（${periodLabel()}）`, wrap, actions);
+      }
+
+      function openTxDetail(txId){
+        const t = state.data.transactions.find(x => x.id === txId);
+        if(!t){ toast("データが見つかりません"); return; }
+
+        const wrap = document.createElement("div");
+
+        const lines = document.createElement("div");
+        lines.className = "card";
+        lines.style.boxShadow = "none";
+        lines.style.background = "rgba(0,0,0,.12)";
+        lines.style.borderRadius = "14px";
+        lines.style.border = "1px solid var(--border)";
+
+        const inner = document.createElement("div");
+        inner.className = "inner";
+        inner.style.padding = "12px 14px";
+
+        const sign = t.type === "income" ? "+" : "-";
+        const cat = (t.type === "expense" && t.category) ? t.category : (t.type === "income" ? "入金" : "支出");
+        const memo = (t.memo && t.memo.trim()) ? t.memo.trim() : "—";
+
+        inner.innerHTML = `
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+            <div>
+              <div style="color:var(--muted);font-size:12px;font-weight:900">${escapeHtml(t.date)} / ${escapeHtml(cat)}</div>
+              <div style="margin-top:6px;font-size:16px;font-weight:900">${escapeHtml(memo)}</div>
+            </div>
+            <div class="amt ${t.type}" style="font-size:16px">${sign}${fmtJPY.format(Number(t.amount)||0)}</div>
+          </div>
+        `;
+        lines.appendChild(inner);
+        wrap.appendChild(lines);
+
+        const div = document.createElement("div");
+        div.className = "divider";
+        wrap.appendChild(div);
+
+        const hint = document.createElement("div");
+        hint.className = "hint";
+        hint.textContent = "※削除すると元に戻せません（端末内保存）。";
+        wrap.appendChild(hint);
+
+        const actions = document.createElement("div");
+        actions.style.display = "flex";
+        actions.style.gap = "10px";
+        actions.style.width = "100%";
+
+        const back = document.createElement("button");
+        back.className = "btn";
+        back.textContent = "閉じる";
+        back.onclick = closeModal;
+
+        const del = document.createElement("button");
+        del.className = "btn danger";
+        del.textContent = "削除";
+        del.onclick = () => {
+          const idx = state.data.transactions.findIndex(x => x.id === txId);
+          if(idx >= 0){
+            state.data.transactions.splice(idx,1);
+            save();
+            closeModal();
+            toast("削除しました");
+            render();
+          }
+        };
+
+        actions.appendChild(back);
+        actions.appendChild(del);
+
+        openModal("明細の詳細", wrap, actions);
+      }
+
+      function field(labelText, control){
+        const f = document.createElement("div");
+        f.className = "field";
+        const lab = document.createElement("label");
+        lab.textContent = labelText;
+        f.appendChild(lab);
+        f.appendChild(control);
+        return f;
+      }
+      function input(type, attrs={}){
+        const i = document.createElement("input");
+        i.type = type;
+        Object.entries(attrs).forEach(([k,v]) => i.setAttribute(k, v));
+        return i;
+      }
+
+      function openBackup(){
+        const wrap = document.createElement("div");
+
+        const p = document.createElement("div");
+        p.className = "hint";
+        p.textContent = "念のため、データをコピーしてメモ等に保存できます。復元もできます。";
+        wrap.appendChild(p);
+
+        const ta = document.createElement("textarea");
+        ta.placeholder = "ここにデータが表示されます";
+        ta.value = JSON.stringify(state.data);
+        wrap.appendChild(field("データ（JSON）", ta));
+
+        const actions = document.createElement("div");
+        actions.style.display = "flex";
+        actions.style.gap = "10px";
+        actions.style.width = "100%";
+
+        const close = document.createElement("button");
+        close.className = "btn";
+        close.textContent = "閉じる";
+        close.onclick = closeModal;
+
+        const copy = document.createElement("button");
+        copy.className = "btn primary";
+        copy.textContent = "コピー";
+        copy.onclick = async () => {
+          try{
+            await navigator.clipboard.writeText(ta.value);
+            toast("コピーしました");
+          }catch(e){
+            ta.select();
+            document.execCommand("copy");
+            toast("コピーしました");
+          }
+        };
+
+        const restore = document.createElement("button");
+        restore.className = "btn";
+        restore.textContent = "復元";
+        restore.onclick = () => {
+          try{
+            const parsed = JSON.parse(ta.value);
+            if(!parsed || typeof parsed !== "object") throw new Error("bad");
+            // 最低限の形だけチェック
+            if(!Array.isArray(parsed.accounts) || !Array.isArray(parsed.transactions)) throw new Error("shape");
+            state.data = parsed;
+            save();
+            closeModal();
+            toast("復元しました");
+            render();
+          }catch(e){
+            toast("復元できません（形式を確認してください）");
+          }
+        };
+
+        actions.appendChild(close);
+        actions.appendChild(copy);
+        actions.appendChild(restore);
+
+        openModal("バックアップ", wrap, actions);
+      }
+
+      function bind(){
+        el("addIncomeBtn").onclick = () => openAdd("income");
+        el("addExpenseBtn").onclick = () => openAdd("expense");
+        el("openAllBtn").onclick = openAllList;
+        el("backupBtn").onclick = openBackup;
+
+        el("closeModalBtn").onclick = closeModal;
+        el("modalOverlay").addEventListener("click", (e) => {
+          if(e.target === el("modalOverlay")) closeModal();
+        });
+
+        // 長押しなどは入れず、タップで詳細→削除に統一
+      }
+
+      function render(){
+        renderAccountSeg();
+        renderSummary();
+        renderRecent();
+      }
+
+      // init
+      state.data = load();
+      bind();
+      render();
+    })();
+  </script>
+
+  <!-- 使い方：
+    1) このファイルを "otoshidama.html" として保存
+    2) iPhoneならSafariで開く
+    3) 共有 →「ホーム画面に追加」でアプリっぽく使えます
+  -->
+</body>
+</html>
