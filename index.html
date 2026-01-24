@@ -3,31 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#111827" />
+  <meta name="theme-color" content="#f8fafc" />
   <title>お年玉管理（2アカウント）</title>
   <style>
     :root{
-      --bg:#0b1220;
-      --card:#111a2e;
-      --card2:#0f172a;
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#60a5fa;
-      --danger:#fb7185;
-      --ok:#34d399;
-      --border:rgba(148,163,184,.18);
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --bg:#f8fafc;
+      --bg-gradient:#e0f2fe;
+      --card:#ffffff;
+      --card2:#f1f5f9;
+      --text:#1e293b;
+      --muted:#64748b;
+      --accent:#3b82f6;
+      --danger:#ef4444;
+      --ok:#10b981;
+      --border:rgba(148,163,184,.25);
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,.08);
       --radius:16px;
       --pad:16px;
       --safeTop: env(safe-area-inset-top, 0px);
       --safeBottom: env(safe-area-inset-bottom, 0px);
+      --meter-bg: #e2e8f0;
+      --meter-fill: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+      --meter-warn: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+      --meter-danger: linear-gradient(90deg, #ef4444 0%, #f87171 100%);
     }
     *{box-sizing:border-box}
     body{
       margin:0;
       font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif;
       color:var(--text);
-      background: radial-gradient(1200px 900px at 10% 0%, #0e1b3a 0%, var(--bg) 55%) fixed;
+      background: linear-gradient(180deg, var(--bg-gradient) 0%, var(--bg) 100%) fixed;
+      min-height: 100vh;
     }
     a{color:inherit}
     .wrap{
@@ -46,37 +53,37 @@
       display:flex; flex-direction:column; gap:4px;
     }
     .title h1{
-      font-size:18px; margin:0; letter-spacing:.2px;
+      font-size:18px; margin:0; letter-spacing:.2px; color:var(--text);
     }
     .title .sub{
       font-size:12px; color:var(--muted);
     }
     .seg{
       display:inline-flex;
-      background: rgba(255,255,255,.06);
+      background: var(--card2);
       border: 1px solid var(--border);
       border-radius: 999px;
       overflow:hidden;
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
     }
     .seg button{
       appearance:none;
       border:0;
       background:transparent;
       color:var(--muted);
-      padding:10px 12px;
-      font-weight:600;
+      padding:10px 14px;
+      font-weight:700;
       font-size:13px;
       cursor:pointer;
       min-width:86px;
+      transition: all .15s;
     }
     .seg button.active{
-      color:var(--text);
-      background: rgba(96,165,250,.18);
+      color:#fff;
+      background: var(--accent);
     }
 
     .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
@@ -88,23 +95,64 @@
       justify-content:space-between;
       gap:12px;
     }
-    .balance .label{color:var(--muted); font-size:12px; margin-bottom:6px;}
+    .balance .label{color:var(--muted); font-size:12px; margin-bottom:6px; font-weight:700;}
     .balance .amount{
       font-size:34px;
       font-weight:800;
       letter-spacing: .2px;
       line-height: 1.05;
       word-break: break-word;
+      color:var(--text);
     }
     .badge{
       font-size:12px;
-      padding:6px 10px;
+      padding:6px 11px;
       border-radius: 999px;
       border: 1px solid var(--border);
       color: var(--muted);
-      background: rgba(255,255,255,.04);
+      background: var(--card2);
       white-space:nowrap;
+      font-weight:700;
     }
+
+    /* メーター */
+    .meter-wrap{
+      margin-top: 14px;
+    }
+    .meter-label{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:8px;
+      font-weight:700;
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+    }
+    .meter-label .ratio{
+      font-size:11px;
+      color:var(--muted);
+    }
+    .meter{
+      width:100%;
+      height:12px;
+      background: var(--meter-bg);
+      border-radius: 999px;
+      overflow:hidden;
+      position:relative;
+    }
+    .meter-bar{
+      height:100%;
+      background: var(--meter-fill);
+      border-radius: 999px;
+      transition: width .3s ease, background .3s ease;
+    }
+    .meter-bar.warn{
+      background: var(--meter-warn);
+    }
+    .meter-bar.danger{
+      background: var(--meter-danger);
+    }
+
     .stats{
       display:grid;
       grid-template-columns: 1fr 1fr;
@@ -112,13 +160,13 @@
       margin-top: 12px;
     }
     .stat{
-      background: rgba(0,0,0,.18);
+      background: var(--card2);
       border:1px solid var(--border);
       border-radius: 14px;
       padding:12px;
     }
-    .stat .k{font-size:12px;color:var(--muted); margin-bottom:6px;}
-    .stat .v{font-size:16px;font-weight:750;}
+    .stat .k{font-size:12px;color:var(--muted); margin-bottom:6px; font-weight:700;}
+    .stat .v{font-size:16px;font-weight:800;}
     .v.income{color:var(--ok)}
     .v.expense{color:var(--danger)}
     .actions{
@@ -136,26 +184,42 @@
       font-weight: 800;
       font-size: 14px;
       letter-spacing:.1px;
-      background: rgba(255,255,255,.06);
+      background: var(--card2);
       border: 1px solid var(--border);
       color: var(--text);
+      transition: all .15s;
+    }
+    .btn:hover{
+      background: var(--border);
     }
     .btn.primary{
-      background: rgba(96,165,250,.22);
-      border-color: rgba(96,165,250,.35);
+      background: var(--accent);
+      border-color: var(--accent);
+      color:#fff;
+    }
+    .btn.primary:hover{
+      background: #2563eb;
+      border-color: #2563eb;
     }
     .btn.danger{
-      background: rgba(251,113,133,.16);
-      border-color: rgba(251,113,133,.28);
-      color: #fecdd3;
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff;
+    }
+    .btn.danger:hover{
+      background: #dc2626;
+      border-color: #dc2626;
     }
     .btn:active{transform: translateY(1px)}
-    .btn.small{padding:10px 10px;font-size:13px;border-radius:12px}
+    .btn.small{padding:10px 11px;font-size:13px;border-radius:12px}
     .btn.ghost{
       background: transparent;
       border-color: var(--border);
       color: var(--muted);
       font-weight:700;
+    }
+    .btn.ghost:hover{
+      background: var(--card2);
     }
 
     .section{
@@ -179,8 +243,12 @@
       gap:12px;
       padding: 12px 14px;
       border-top: 1px solid var(--border);
-      background: rgba(0,0,0,.10);
+      background: transparent;
       cursor:pointer;
+      transition: background .15s;
+    }
+    .row:hover{
+      background: var(--card2);
     }
     .row:first-child{border-top:0}
     .row .left{
@@ -196,6 +264,7 @@
       color: var(--muted);
       min-width: 52px;
       flex: 0 0 auto;
+      font-weight:600;
     }
     .cat{
       font-size:12px;
@@ -203,8 +272,9 @@
       border:1px solid var(--border);
       border-radius: 999px;
       color: var(--muted);
-      background: rgba(255,255,255,.03);
+      background: var(--card2);
       flex: 0 0 auto;
+      font-weight:600;
     }
     .memo{
       font-size:14px;
@@ -213,6 +283,7 @@
       overflow:hidden;
       text-overflow:ellipsis;
       max-width: 52vw;
+      color:var(--text);
     }
     .row .amt{
       font-size:14px;
@@ -236,18 +307,22 @@
     }
     .chip{
       border:1px solid var(--border);
-      background: rgba(255,255,255,.04);
+      background: var(--card2);
       color: var(--muted);
-      padding:8px 10px;
+      padding:8px 11px;
       border-radius:999px;
       font-weight:800;
       font-size:12px;
       cursor:pointer;
+      transition: all .15s;
+    }
+    .chip:hover{
+      background: var(--border);
     }
     .chip.active{
-      color: var(--text);
-      background: rgba(96,165,250,.18);
-      border-color: rgba(96,165,250,.35);
+      color: #fff;
+      background: var(--accent);
+      border-color: var(--accent);
     }
 
     .footerline{
@@ -255,41 +330,50 @@
       margin-top: 10px;
       color: var(--muted);
       font-size:12px;
+      font-weight:600;
     }
 
     /* Modal */
     .overlay{
       position:fixed; inset:0;
-      background: rgba(0,0,0,.55);
+      background: rgba(0,0,0,.35);
       display:none;
       align-items:flex-end;
       justify-content:center;
       padding: 12px 12px calc(var(--safeBottom) + 12px);
       z-index: 50;
+      backdrop-filter: blur(4px);
     }
     .overlay.show{display:flex}
     .sheet{
       width: min(720px, 100%);
-      background: linear-gradient(180deg, rgba(17,26,46,.98), rgba(15,23,42,.98));
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 18px;
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow-lg);
       overflow:hidden;
+      max-height: calc(100vh - var(--safeTop) - var(--safeBottom) - 24px);
+      overflow-y: auto;
     }
     .sheet header{
       margin:0;
       padding: 12px 14px;
       border-bottom:1px solid var(--border);
       display:flex; align-items:center; justify-content:space-between;
-      background: rgba(0,0,0,.10);
+      background: var(--card2);
     }
     .sheet header .h{
       font-weight:900;
       font-size:14px;
+      color:var(--text);
     }
     .sheet header .x{
       appearance:none;border:0;background:transparent;color:var(--muted);
       font-size:18px;font-weight:900;cursor:pointer;padding:6px 8px;border-radius:10px;
+      transition: all .15s;
+    }
+    .sheet header .x:hover{
+      background: var(--border);
     }
     .sheet .body{padding:14px}
     .grid{
@@ -303,6 +387,9 @@
       gap:6px;
       margin-bottom:10px;
     }
+    .field.full{
+      grid-column: 1 / -1;
+    }
     .field label{
       font-size:12px;
       color: var(--muted);
@@ -313,13 +400,18 @@
       padding: 12px 12px;
       border-radius: 14px;
       border: 1px solid var(--border);
-      background: rgba(0,0,0,.20);
+      background: var(--bg);
       color: var(--text);
       font-size: 15px;
       outline:none;
+      font-family: inherit;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus{
+      border-color: var(--accent);
     }
     textarea{min-height: 82px; resize: vertical;}
-    input::placeholder, textarea::placeholder{color: rgba(148,163,184,.7)}
+    input::placeholder, textarea::placeholder{color: var(--muted); opacity:.7}
     .sheet .actionsRow{
       display:flex; gap:10px;
       padding: 0 14px 14px;
@@ -337,18 +429,44 @@
       margin: 12px 0;
     }
 
+    /* プレビューメーター */
+    .preview-meter{
+      margin-top:12px;
+      padding:12px;
+      background: var(--card2);
+      border:1px solid var(--border);
+      border-radius: 14px;
+      display:none;
+    }
+    .preview-meter.show{
+      display:block;
+    }
+    .preview-meter .title{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:8px;
+      font-weight:700;
+    }
+    .preview-meter .value{
+      font-size:20px;
+      font-weight:800;
+      margin-bottom:10px;
+    }
+    .preview-meter .value.positive{color:var(--ok)}
+    .preview-meter .value.negative{color:var(--danger)}
+
     /* small top alert */
     .toast{
       position: fixed;
       top: calc(var(--safeTop) + 12px);
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(17,26,46,.92);
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 999px;
-      padding: 10px 12px;
+      padding: 10px 14px;
       color: var(--text);
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow-lg);
       font-size: 13px;
       font-weight: 800;
       display:none;
@@ -363,7 +481,7 @@
     @media (max-width: 420px){
       .balance .amount{font-size: 30px}
       .memo{max-width: 48vw}
-      .seg button{min-width:80px}
+      .seg button{min-width:80px; padding:10px 12px}
     }
   </style>
 </head>
@@ -391,6 +509,17 @@
             <div class="amount" id="balanceAmt">¥0</div>
           </div>
           <div class="badge" id="periodBadge">今年</div>
+        </div>
+
+        <!-- 残額メーター -->
+        <div class="meter-wrap">
+          <div class="meter-label">
+            <span>残額メーター</span>
+            <span class="ratio" id="meterRatio">0%</span>
+          </div>
+          <div class="meter">
+            <div class="meter-bar" id="meterBar" style="width:0%"></div>
+          </div>
         </div>
 
         <div class="stats">
@@ -568,6 +697,30 @@
         return "全部";
       }
 
+      function updateMeter(balance, income){
+        const bar = el("meterBar");
+        const ratio = el("meterRatio");
+
+        if(income <= 0){
+          bar.style.width = "0%";
+          ratio.textContent = "0%";
+          bar.className = "meter-bar";
+          return;
+        }
+
+        const percent = Math.max(0, Math.min(100, (balance / income) * 100));
+        bar.style.width = percent + "%";
+        ratio.textContent = Math.round(percent) + "%";
+
+        // 色分け
+        bar.className = "meter-bar";
+        if(percent < 30){
+          bar.classList.add("danger");
+        } else if(percent < 60){
+          bar.classList.add("warn");
+        }
+      }
+
       function renderSummary(){
         const a = activeAccount();
         const list = filteredTx(a.id, state.viewPeriod);
@@ -577,6 +730,9 @@
         el("balanceAmt").textContent = fmtJPY.format(s.balance);
         el("incomeSum").textContent = fmtJPY.format(s.income);
         el("expenseSum").textContent = fmtJPY.format(s.expense);
+
+        // メーター更新
+        updateMeter(s.balance, s.income);
 
         const totalCount = state.data.transactions.filter(t=>t.accountId===a.id).length;
         el("countInfo").textContent = `${a.name}：${totalCount}件`;
@@ -685,12 +841,60 @@
             sel.appendChild(opt);
           }
           fCat = field("カテゴリ", sel);
+          fCat.classList.add("full");
           wrap.appendChild(fCat);
         }
 
         const memo = document.createElement("textarea");
         memo.placeholder = isIncome ? "メモ（例：じいじ、ばあば など）" : "メモ（例：レゴ、絵本 など）";
-        wrap.appendChild(field("メモ（任意）", memo));
+        const fMemo = field("メモ（任意）", memo);
+        fMemo.classList.add("full");
+        wrap.appendChild(fMemo);
+
+        // プレビューメーター（支出時のみ）
+        let previewMeter = null;
+        if(!isIncome){
+          previewMeter = document.createElement("div");
+          previewMeter.className = "preview-meter";
+          previewMeter.innerHTML = `
+            <div class="title">使ったらあといくら？</div>
+            <div class="value" id="previewValue">¥0</div>
+            <div class="meter">
+              <div class="meter-bar" id="previewBar" style="width:100%"></div>
+            </div>
+          `;
+          wrap.appendChild(previewMeter);
+
+          // リアルタイム計算
+          const amtInput = fAmt.querySelector("input");
+          amtInput.addEventListener("input", () => {
+            const inputAmt = Number(amtInput.value) || 0;
+            if(inputAmt > 0){
+              const a = activeAccount();
+              const list = filteredTx(a.id, state.viewPeriod);
+              const s = sums(list);
+              const newBalance = s.balance - inputAmt;
+              const percent = s.income > 0 ? Math.max(0, Math.min(100, (newBalance / s.income) * 100)) : 0;
+
+              previewMeter.classList.add("show");
+              const valueEl = previewMeter.querySelector("#previewValue");
+              const barEl = previewMeter.querySelector("#previewBar");
+
+              valueEl.textContent = fmtJPY.format(newBalance);
+              valueEl.className = "value " + (newBalance >= 0 ? "positive" : "negative");
+
+              barEl.style.width = percent + "%";
+              barEl.className = "meter-bar";
+              if(percent < 30){
+                barEl.classList.add("danger");
+              } else if(percent < 60){
+                barEl.classList.add("warn");
+              }
+            } else {
+              previewMeter.classList.remove("show");
+            }
+          });
+        }
 
         const hint = document.createElement("div");
         hint.className = "hint";
@@ -856,7 +1060,7 @@
         const lines = document.createElement("div");
         lines.className = "card";
         lines.style.boxShadow = "none";
-        lines.style.background = "rgba(0,0,0,.12)";
+        lines.style.background = "var(--card2)";
         lines.style.borderRadius = "14px";
         lines.style.border = "1px solid var(--border)";
 
@@ -872,7 +1076,7 @@
           <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
             <div>
               <div style="color:var(--muted);font-size:12px;font-weight:900">${escapeHtml(t.date)} / ${escapeHtml(cat)}</div>
-              <div style="margin-top:6px;font-size:16px;font-weight:900">${escapeHtml(memo)}</div>
+              <div style="margin-top:6px;font-size:16px;font-weight:900;color:var(--text)">${escapeHtml(memo)}</div>
             </div>
             <div class="amt ${t.type}" style="font-size:16px">${sign}${fmtJPY.format(Number(t.amount)||0)}</div>
           </div>
@@ -946,7 +1150,9 @@
         const ta = document.createElement("textarea");
         ta.placeholder = "ここにデータが表示されます";
         ta.value = JSON.stringify(state.data);
-        wrap.appendChild(field("データ（JSON）", ta));
+        const fData = field("データ（JSON）", ta);
+        fData.classList.add("full");
+        wrap.appendChild(fData);
 
         const actions = document.createElement("div");
         actions.style.display = "flex";
@@ -1008,8 +1214,6 @@
         el("modalOverlay").addEventListener("click", (e) => {
           if(e.target === el("modalOverlay")) closeModal();
         });
-
-        // 長押しなどは入れず、タップで詳細→削除に統一
       }
 
       function render(){
@@ -1024,11 +1228,5 @@
       render();
     })();
   </script>
-
-  <!-- 使い方：
-    1) このファイルを "otoshidama.html" として保存
-    2) iPhoneならSafariで開く
-    3) 共有 →「ホーム画面に追加」でアプリっぽく使えます
-  -->
 </body>
 </html>
