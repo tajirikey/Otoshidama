@@ -6,19 +6,21 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 function isKvAvailable() {
-  return !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
+  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
 }
 
-// KV未設定時の開発用フォールバック（同一プロセス内のみ有効）
 let memoryStore: any = null
 
 async function getKv() {
   if (!isKvAvailable()) return null
   try {
-    const { kv } = await import('@vercel/kv')
-    return kv
+    const { Redis } = await import('@upstash/redis')
+    return new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
   } catch (e) {
-    console.error('Vercel KV import failed:', e)
+    console.error('Upstash Redis import failed:', e)
     return null
   }
 }
@@ -31,7 +33,7 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ data: data ?? null, source: 'kv' })
     }
     if (process.env.NODE_ENV === 'production') {
-      console.warn('Vercel KV is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN.')
+      console.warn('Upstash Redis is not configured.')
     }
     return NextResponse.json({ data: memoryStore, source: 'memory' })
   } catch (error) {
