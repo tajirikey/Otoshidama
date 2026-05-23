@@ -180,7 +180,7 @@ export default function Home() {
     return (
       <div className="loading-screen">
         <div className="loading-box">
-          <h2>お年玉管理</h2>
+          <h2>おこづかい管理</h2>
           {loadError ? (
             <>
               <div className="subtitle" style={{ color: '#ef4444' }}>{loadError}</div>
@@ -215,7 +215,7 @@ export default function Home() {
       <div className="wrap">
         <header>
           <div className="title">
-            <h1>お年玉管理</h1>
+            <h1>おこづかい管理</h1>
             <div className="sub">さやとせいやの共有アカウント</div>
           </div>
 

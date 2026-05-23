@@ -67,7 +67,7 @@ export default function LoginPage() {
         textAlign: 'center'
       }}>
         <h2 style={{ margin: '0 0 12px', fontSize: '20px', color: '#1e293b' }}>
-          お年玉管理
+          おこづかい管理
         </h2>
         <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
           夫婦で共有して管理
