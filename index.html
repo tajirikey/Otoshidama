@@ -485,7 +485,6 @@
     }
     .toast.show{display:block}
 
-    /* ログイン画面 */
     .login-screen{
       position:fixed;
       inset:0;
@@ -502,57 +501,32 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow-lg);
-      padding:24px;
+      padding:32px;
       width:min(400px, 100%);
+      text-align:center;
     }
     .login-box h2{
-      margin:0 0 8px;
+      margin:0 0 12px;
       font-size:20px;
       color:var(--text);
     }
     .login-box .subtitle{
-      font-size:13px;
-      color:var(--muted);
-      margin-bottom:20px;
-    }
-    .login-tabs{
-      display:flex;
-      gap:8px;
-      margin-bottom:16px;
-      border-bottom:1px solid var(--border);
-    }
-    .login-tab{
-      padding:10px 16px;
-      background:transparent;
-      border:0;
-      color:var(--muted);
-      font-weight:700;
       font-size:14px;
-      cursor:pointer;
-      border-bottom:2px solid transparent;
-      transition:all .15s;
+      color:var(--muted);
+      margin-bottom:0;
     }
-    .login-tab.active{
-      color:var(--accent);
-      border-bottom-color:var(--accent);
+    .spinner{
+      margin:24px auto 16px;
+      width:40px;
+      height:40px;
+      border:3px solid var(--border);
+      border-top-color:var(--accent);
+      border-radius:50%;
+      animation:spin 1s linear infinite;
     }
-    .login-form{
-      display:none;
+    @keyframes spin{
+      to{transform:rotate(360deg)}
     }
-    .login-form.active{
-      display:block;
-    }
-    .error-msg{
-      background:rgba(239,68,68,.1);
-      border:1px solid rgba(239,68,68,.3);
-      color:var(--danger);
-      padding:10px 12px;
-      border-radius:12px;
-      font-size:13px;
-      margin-bottom:12px;
-      display:none;
-    }
-    .error-msg.show{display:block}
 
     @media (max-width: 420px){
       .balance .amount{font-size: 30px}
@@ -564,42 +538,12 @@
 <body>
   <div class="toast" id="toast"></div>
 
-  <!-- ログイン画面 -->
+  <!-- ローディング画面 -->
   <div class="login-screen show" id="loginScreen">
     <div class="login-box">
       <h2>お年玉管理</h2>
-      <div class="subtitle">夫婦で共有して管理（パスワードで共有）</div>
-
-      <div class="login-tabs">
-        <button class="login-tab active" data-tab="login">ログイン</button>
-        <button class="login-tab" data-tab="signup">新規作成</button>
-      </div>
-
-      <div id="loginError" class="error-msg"></div>
-
-      <!-- ログインフォーム -->
-      <form class="login-form active" id="loginForm">
-        <div class="field full">
-          <label>共有パスワード</label>
-          <input type="password" id="loginPassword" placeholder="6文字以上" required>
-        </div>
-        <div class="hint">夫婦で同じパスワードを使ってログインしてください</div>
-        <button type="submit" class="btn primary" style="width:100%;margin-top:8px">ログイン</button>
-      </form>
-
-      <!-- 新規登録フォーム -->
-      <form class="login-form" id="signupForm">
-        <div class="field full">
-          <label>共有パスワード</label>
-          <input type="password" id="signupPassword" placeholder="6文字以上" required>
-        </div>
-        <div class="field full">
-          <label>パスワード（確認）</label>
-          <input type="password" id="signupPasswordConfirm" placeholder="もう一度入力" required>
-        </div>
-        <div class="hint">このパスワードを夫婦で共有してログインします</div>
-        <button type="submit" class="btn primary" style="width:100%;margin-top:8px">新規作成</button>
-      </form>
+      <div class="spinner"></div>
+      <div class="subtitle">読み込み中...</div>
     </div>
   </div>
 
@@ -607,15 +551,12 @@
     <header>
       <div class="title">
         <h1>お年玉管理</h1>
-        <div class="sub" id="userEmail">読み込み中...</div>
+        <div class="sub">さやとせいやの共有アカウント</div>
       </div>
 
-      <div style="display:flex;gap:8px;align-items:center">
-        <div class="seg" id="accountSeg">
-          <button type="button" data-account="a">さや</button>
-          <button type="button" data-account="b">せいや</button>
-        </div>
-        <button class="btn small ghost" id="logoutBtn">ログアウト</button>
+      <div class="seg" id="accountSeg">
+        <button type="button" data-account="a">さや</button>
+        <button type="button" data-account="b">せいや</button>
       </div>
     </header>
 
@@ -708,6 +649,7 @@
       const auth = firebase.auth();
       const db = firebase.firestore();
 
+      const FIXED_PASSWORD = "sayasei3367"; // 固定パスワード
       const STORAGE_KEY = "otd_money_v1";
       const fmtJPY = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 
@@ -1369,99 +1311,39 @@
         openModal("バックアップ", wrap, actions);
       }
 
-      function showError(msg){
-        const err = el("loginError");
-        err.textContent = msg;
-        err.classList.add("show");
-        setTimeout(() => err.classList.remove("show"), 3000);
-      }
-
       function showMainApp(){
         el("loginScreen").classList.remove("show");
         el("mainApp").style.display = "block";
-        el("userEmail").textContent = "共有アカウント";
-      }
-
-      function showLoginScreen(){
-        el("loginScreen").classList.add("show");
-        el("mainApp").style.display = "none";
       }
 
       // パスワードから固定のメールアドレスを生成
       function passwordToEmail(password){
-        return `shared_${password.replace(/[^a-zA-Z0-9]/g, '_')}@otoshidama.local`;
+        return `shared_${password}@otoshidama.local`;
       }
 
-      async function handleLogin(password){
+      // 固定パスワードで自動ログイン
+      async function autoLogin(){
+        const email = passwordToEmail(FIXED_PASSWORD);
         try{
-          const email = passwordToEmail(password);
-          await auth.signInWithEmailAndPassword(email, password);
+          // まずログインを試みる
+          await auth.signInWithEmailAndPassword(email, FIXED_PASSWORD);
         }catch(error){
-          let msg = "ログインに失敗しました";
-          if(error.code === "auth/invalid-credential") msg = "パスワードが間違っているか、アカウントが存在しません";
-          else if(error.code === "auth/user-not-found") msg = "このパスワードで作成されたアカウントが見つかりません";
-          else if(error.code === "auth/wrong-password") msg = "パスワードが間違っています";
-          else if(error.code === "auth/invalid-email") msg = "パスワードに使用できない文字が含まれています（英数字のみ使用してください）";
-          showError(msg);
-        }
-      }
-
-      async function handleSignup(password, passwordConfirm){
-        if(password !== passwordConfirm){
-          showError("パスワードが一致しません");
-          return;
-        }
-        if(password.length < 6){
-          showError("パスワードは6文字以上で入力してください");
-          return;
-        }
-        try{
-          const email = passwordToEmail(password);
-          await auth.createUserWithEmailAndPassword(email, password);
-        }catch(error){
-          let msg = "登録に失敗しました";
-          if(error.code === "auth/email-already-in-use") msg = "このパスワードは既に使用されています";
-          else if(error.code === "auth/invalid-email") msg = "パスワードに使用できない文字が含まれています（英数字のみ使用してください）";
-          else if(error.code === "auth/weak-password") msg = "パスワードが弱すぎます";
-          showError(msg);
+          if(error.code === "auth/user-not-found" || error.code === "auth/invalid-credential"){
+            // アカウントが存在しない場合は新規作成
+            try{
+              await auth.createUserWithEmailAndPassword(email, FIXED_PASSWORD);
+            }catch(signupError){
+              console.error("アカウント作成エラー:", signupError);
+              toast("初期化に失敗しました");
+            }
+          }else{
+            console.error("ログインエラー:", error);
+            toast("ログインに失敗しました");
+          }
         }
       }
 
       function bindAuth(){
-        // タブ切り替え
-        document.querySelectorAll(".login-tab").forEach(tab => {
-          tab.onclick = () => {
-            const target = tab.dataset.tab;
-            document.querySelectorAll(".login-tab").forEach(t => t.classList.remove("active"));
-            document.querySelectorAll(".login-form").forEach(f => f.classList.remove("active"));
-            tab.classList.add("active");
-            el(target === "login" ? "loginForm" : "signupForm").classList.add("active");
-            el("loginError").classList.remove("show");
-          };
-        });
-
-        // ログインフォーム
-        el("loginForm").onsubmit = (e) => {
-          e.preventDefault();
-          const password = el("loginPassword").value;
-          handleLogin(password);
-        };
-
-        // 新規登録フォーム
-        el("signupForm").onsubmit = (e) => {
-          e.preventDefault();
-          const password = el("signupPassword").value;
-          const passwordConfirm = el("signupPasswordConfirm").value;
-          handleSignup(password, passwordConfirm);
-        };
-
-        // ログアウト
-        el("logoutBtn").onclick = async () => {
-          if(confirm("ログアウトしますか？")){
-            await auth.signOut();
-          }
-        };
-
         // 認証状態の監視
         auth.onAuthStateChanged(async (user) => {
           state.user = user;
@@ -1471,9 +1353,8 @@
             showMainApp();
             render();
           }else{
-            if(state.unsubscribe) state.unsubscribe();
-            state.data = null;
-            showLoginScreen();
+            // ログインしていない場合は自動ログイン
+            autoLogin();
           }
         });
       }
