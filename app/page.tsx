@@ -346,8 +346,8 @@ export default function Home() {
           onClose={() => setModal(null)}
           onDelete={async () => {
             const newData = { ...data, transactions: data.transactions.filter(t => t.id !== modal.txId) }
-            await saveData(newData)
             setModal(null)
+            await saveData(newData)
             toast('削除しました')
           }}
         />
