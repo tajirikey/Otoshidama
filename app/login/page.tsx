@@ -3,27 +3,47 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-const PASSWORD = 'sayasei3367'
 const AUTH_KEY = 'otoshidama_auth'
+const AUTH_VALUE = 'ok'
 
 export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem(AUTH_KEY) === PASSWORD) {
+    if (typeof window !== 'undefined' && localStorage.getItem(AUTH_KEY) === AUTH_VALUE) {
       router.replace('/')
     }
   }, [router])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (password === PASSWORD) {
-      localStorage.setItem(AUTH_KEY, PASSWORD)
-      router.replace('/')
-    } else {
-      setError('パスワードが違います')
+    if (submitting) return
+    setError('')
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+      if (res.ok) {
+        localStorage.setItem(AUTH_KEY, AUTH_VALUE)
+        router.replace('/')
+        return
+      }
+      if (res.status === 401) {
+        setError('パスワードが違います')
+      } else {
+        const json = await res.json().catch(() => ({}))
+        setError(json?.error || 'ログインに失敗しました')
+      }
+    } catch (e) {
+      setError('通信エラーが発生しました')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -95,19 +115,20 @@ export default function LoginPage() {
 
           <button
             type="submit"
+            disabled={submitting}
             style={{
               width: '100%',
               padding: '12px',
               borderRadius: '14px',
               border: '0',
-              background: '#3b82f6',
+              background: submitting ? '#94a3b8' : '#3b82f6',
               color: '#fff',
               fontSize: '14px',
               fontWeight: 800,
-              cursor: 'pointer'
+              cursor: submitting ? 'not-allowed' : 'pointer'
             }}
           >
-            ログイン
+            {submitting ? '確認中...' : 'ログイン'}
           </button>
         </form>
       </div>

@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-const PASSWORD = 'sayasei3367'
 const AUTH_KEY = 'otoshidama_auth'
+const AUTH_VALUE = 'ok'
 
 type Account = { id: string; name: string }
 type TxType = 'income' | 'expense'
@@ -26,7 +26,6 @@ type AppData = {
 }
 type Period = 'year' | 'month' | 'all'
 
-const STORAGE_KEY = 'otd_money_v1'
 const fmtJPY = new Intl.NumberFormat('ja-JP', {
   style: 'currency', currency: 'JPY', maximumFractionDigits: 0
 })
@@ -65,6 +64,7 @@ export default function Home() {
   const [authChecked, setAuthChecked] = useState(false)
   const [data, setData] = useState<AppData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [viewPeriod, setViewPeriod] = useState<Period>('year')
   const [toastMsg, setToastMsg] = useState('')
   const [modal, setModal] = useState<null | {
@@ -77,7 +77,7 @@ export default function Home() {
   // 認証チェック
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (localStorage.getItem(AUTH_KEY) !== PASSWORD) {
+      if (localStorage.getItem(AUTH_KEY) !== AUTH_VALUE) {
         router.replace('/login')
         return
       }
@@ -101,49 +101,33 @@ export default function Home() {
   }, [data])
 
   async function loadData(){
+    setLoadError('')
     try{
       const res = await fetch('/api/data', { cache: 'no-store' })
-      if(res.ok){
-        const json = await res.json()
-        if(json.data){
-          setData(normalizeData(json.data))
-          setLoading(false)
-          return
-        }
+      if(!res.ok){
+        throw new Error(`status=${res.status}`)
       }
+      const json = await res.json()
+      setData(normalizeData(json.data ?? defaultData()))
+      setLoading(false)
     }catch(e){
       console.error('API読み込みエラー:', e)
+      setLoadError('データの取得に失敗しました')
+      setLoading(false)
     }
-
-    // ローカルストレージから読み込み
-    try{
-      const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
-      if(raw){
-        setData(normalizeData(JSON.parse(raw)))
-      }else{
-        setData(defaultData())
-      }
-    }catch(e){
-      setData(defaultData())
-    }
-    setLoading(false)
   }
 
   async function refreshFromServer(){
     try{
       const res = await fetch('/api/data', { cache: 'no-store' })
-      if(res.ok){
-        const json = await res.json()
-        if(json.data){
-          const newData = normalizeData(json.data)
-          // 自分のデータより新しい場合は更新
-          if(JSON.stringify(newData) !== JSON.stringify(data)){
-            setData(newData)
-          }
-        }
+      if(!res.ok) return
+      const json = await res.json()
+      const newData = normalizeData(json.data ?? defaultData())
+      if(JSON.stringify(newData) !== JSON.stringify(data)){
+        setData(newData)
       }
     }catch(e){
-      // 無視
+      // ポーリングのエラーは無視
     }
   }
 
@@ -165,19 +149,18 @@ export default function Home() {
 
   async function saveData(newData: AppData){
     setData(newData)
-    // ローカルストレージにも保存（フォールバック）
     try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newData))
-    }catch(e){}
-    // サーバーに保存
-    try{
-      await fetch('/api/data', {
+      const res = await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: newData }),
       })
+      if(!res.ok){
+        throw new Error(`status=${res.status}`)
+      }
     }catch(e){
       console.error('保存エラー:', e)
+      toast('保存に失敗しました')
     }
   }
 
@@ -198,8 +181,17 @@ export default function Home() {
       <div className="loading-screen">
         <div className="loading-box">
           <h2>お年玉管理</h2>
-          <div className="spinner"></div>
-          <div className="subtitle">読み込み中...</div>
+          {loadError ? (
+            <>
+              <div className="subtitle" style={{ color: '#ef4444' }}>{loadError}</div>
+              <button className="btn primary" style={{ marginTop: 12 }} onClick={() => { setLoading(true); loadData() }}>再試行</button>
+            </>
+          ) : (
+            <>
+              <div className="spinner"></div>
+              <div className="subtitle">読み込み中...</div>
+            </>
+          )}
         </div>
       </div>
     )

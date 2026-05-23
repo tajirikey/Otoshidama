@@ -2,48 +2,61 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const DATA_KEY = 'otoshidama_data'
 
-// KVが利用可能かチェック
-function isKvAvailable(){
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+function isKvAvailable() {
   return !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
 }
 
-// メモリキャッシュ（KV未設定時のフォールバック）
+// KV未設定時の開発用フォールバック（同一プロセス内のみ有効）
 let memoryStore: any = null
 
-async function getKv(){
-  if(!isKvAvailable()) return null
-  try{
+async function getKv() {
+  if (!isKvAvailable()) return null
+  try {
     const { kv } = await import('@vercel/kv')
     return kv
-  }catch(e){
+  } catch (e) {
+    console.error('Vercel KV import failed:', e)
     return null
   }
 }
 
-// データ取得
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const kv = await getKv()
-    if(kv){
+    if (kv) {
       const data = await kv.get(DATA_KEY)
-      return NextResponse.json({ data: data || null })
+      return NextResponse.json({ data: data ?? null, source: 'kv' })
     }
-    // KV未設定時はメモリから返す
-    return NextResponse.json({ data: memoryStore })
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('Vercel KV is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN.')
+    }
+    return NextResponse.json({ data: memoryStore, source: 'memory' })
   } catch (error) {
     console.error('Data fetch error:', error)
-    return NextResponse.json({ data: memoryStore })
+    return NextResponse.json(
+      { data: null, error: 'データ取得に失敗しました' },
+      { status: 500 }
+    )
   }
 }
 
-// データ保存
 export async function POST(request: NextRequest) {
   try {
-    const { data } = await request.json()
+    const body = await request.json()
+    const data = body?.data
+    if (!data || typeof data !== 'object') {
+      return NextResponse.json(
+        { success: false, error: 'data が不正です' },
+        { status: 400 }
+      )
+    }
     const kv = await getKv()
-    if(kv){
+    if (kv) {
       await kv.set(DATA_KEY, data)
-    }else{
+    } else {
       memoryStore = data
     }
     return NextResponse.json({ success: true })
