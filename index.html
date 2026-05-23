@@ -568,11 +568,11 @@
   <div class="login-screen show" id="loginScreen">
     <div class="login-box">
       <h2>お年玉管理</h2>
-      <div class="subtitle">夫婦で共有して管理</div>
+      <div class="subtitle">夫婦で共有して管理（パスワードで共有）</div>
 
       <div class="login-tabs">
         <button class="login-tab active" data-tab="login">ログイン</button>
-        <button class="login-tab" data-tab="signup">新規登録</button>
+        <button class="login-tab" data-tab="signup">新規作成</button>
       </div>
 
       <div id="loginError" class="error-msg"></div>
@@ -580,31 +580,25 @@
       <!-- ログインフォーム -->
       <form class="login-form active" id="loginForm">
         <div class="field full">
-          <label>メールアドレス</label>
-          <input type="email" id="loginEmail" placeholder="example@email.com" required>
-        </div>
-        <div class="field full">
-          <label>パスワード</label>
+          <label>共有パスワード</label>
           <input type="password" id="loginPassword" placeholder="6文字以上" required>
         </div>
+        <div class="hint">夫婦で同じパスワードを使ってログインしてください</div>
         <button type="submit" class="btn primary" style="width:100%;margin-top:8px">ログイン</button>
       </form>
 
       <!-- 新規登録フォーム -->
       <form class="login-form" id="signupForm">
         <div class="field full">
-          <label>メールアドレス</label>
-          <input type="email" id="signupEmail" placeholder="example@email.com" required>
-        </div>
-        <div class="field full">
-          <label>パスワード</label>
+          <label>共有パスワード</label>
           <input type="password" id="signupPassword" placeholder="6文字以上" required>
         </div>
         <div class="field full">
           <label>パスワード（確認）</label>
           <input type="password" id="signupPasswordConfirm" placeholder="もう一度入力" required>
         </div>
-        <button type="submit" class="btn primary" style="width:100%;margin-top:8px">新規登録</button>
+        <div class="hint">このパスワードを夫婦で共有してログインします</div>
+        <button type="submit" class="btn primary" style="width:100%;margin-top:8px">新規作成</button>
       </form>
     </div>
   </div>
@@ -1385,7 +1379,7 @@
       function showMainApp(){
         el("loginScreen").classList.remove("show");
         el("mainApp").style.display = "block";
-        el("userEmail").textContent = state.user?.email || "";
+        el("userEmail").textContent = "共有アカウント";
       }
 
       function showLoginScreen(){
@@ -1393,19 +1387,26 @@
         el("mainApp").style.display = "none";
       }
 
-      async function handleLogin(email, password){
+      // パスワードから固定のメールアドレスを生成
+      function passwordToEmail(password){
+        return `shared_${password.replace(/[^a-zA-Z0-9]/g, '_')}@otoshidama.local`;
+      }
+
+      async function handleLogin(password){
         try{
+          const email = passwordToEmail(password);
           await auth.signInWithEmailAndPassword(email, password);
         }catch(error){
           let msg = "ログインに失敗しました";
-          if(error.code === "auth/invalid-credential") msg = "メールアドレスまたはパスワードが間違っています";
-          else if(error.code === "auth/user-not-found") msg = "ユーザーが見つかりません";
+          if(error.code === "auth/invalid-credential") msg = "パスワードが間違っているか、アカウントが存在しません";
+          else if(error.code === "auth/user-not-found") msg = "このパスワードで作成されたアカウントが見つかりません";
           else if(error.code === "auth/wrong-password") msg = "パスワードが間違っています";
+          else if(error.code === "auth/invalid-email") msg = "パスワードに使用できない文字が含まれています（英数字のみ使用してください）";
           showError(msg);
         }
       }
 
-      async function handleSignup(email, password, passwordConfirm){
+      async function handleSignup(password, passwordConfirm){
         if(password !== passwordConfirm){
           showError("パスワードが一致しません");
           return;
@@ -1415,11 +1416,12 @@
           return;
         }
         try{
+          const email = passwordToEmail(password);
           await auth.createUserWithEmailAndPassword(email, password);
         }catch(error){
           let msg = "登録に失敗しました";
-          if(error.code === "auth/email-already-in-use") msg = "このメールアドレスは既に使用されています";
-          else if(error.code === "auth/invalid-email") msg = "メールアドレスの形式が正しくありません";
+          if(error.code === "auth/email-already-in-use") msg = "このパスワードは既に使用されています";
+          else if(error.code === "auth/invalid-email") msg = "パスワードに使用できない文字が含まれています（英数字のみ使用してください）";
           else if(error.code === "auth/weak-password") msg = "パスワードが弱すぎます";
           showError(msg);
         }
@@ -1441,18 +1443,16 @@
         // ログインフォーム
         el("loginForm").onsubmit = (e) => {
           e.preventDefault();
-          const email = el("loginEmail").value;
           const password = el("loginPassword").value;
-          handleLogin(email, password);
+          handleLogin(password);
         };
 
         // 新規登録フォーム
         el("signupForm").onsubmit = (e) => {
           e.preventDefault();
-          const email = el("signupEmail").value;
           const password = el("signupPassword").value;
           const passwordConfirm = el("signupPasswordConfirm").value;
-          handleSignup(email, password, passwordConfirm);
+          handleSignup(password, passwordConfirm);
         };
 
         // ログアウト
