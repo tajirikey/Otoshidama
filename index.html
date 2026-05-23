@@ -542,8 +542,9 @@
   <div class="login-screen show" id="loginScreen">
     <div class="login-box">
       <h2>お年玉管理</h2>
-      <div class="spinner"></div>
-      <div class="subtitle">読み込み中...</div>
+      <div class="spinner" id="spinner"></div>
+      <div class="subtitle" id="loadingMessage">読み込み中...</div>
+      <div id="errorDetail" style="margin-top:16px;font-size:12px;color:var(--danger);display:none;text-align:left;background:rgba(239,68,68,.1);padding:12px;border-radius:12px;"></div>
     </div>
   </div>
 
@@ -644,10 +645,42 @@
         appId: "YOUR_APP_ID"
       };
 
+      // Firebase設定チェック
+      function checkFirebaseConfig(){
+        if(firebaseConfig.apiKey === "YOUR_API_KEY"){
+          const msg = document.createElement("div");
+          msg.innerHTML = `
+            <strong>Firebase設定が必要です</strong><br><br>
+            1. <a href="https://console.firebase.google.com/" target="_blank" style="color:var(--accent)">Firebase Console</a> でプロジェクトを作成<br>
+            2. Authentication を有効化（メール/パスワード）<br>
+            3. Firestore Database を作成<br>
+            4. プロジェクト設定から設定値を取得<br>
+            5. index.html の firebaseConfig を更新<br><br>
+            <small>詳しくは README.md をご確認ください</small>
+          `;
+          el("loadingMessage").textContent = "設定が必要です";
+          el("spinner").style.display = "none";
+          el("errorDetail").innerHTML = msg.innerHTML;
+          el("errorDetail").style.display = "block";
+          return false;
+        }
+        return true;
+      }
+
       // Firebase初期化
-      firebase.initializeApp(firebaseConfig);
-      const auth = firebase.auth();
-      const db = firebase.firestore();
+      let auth, db;
+      try{
+        if(checkFirebaseConfig()){
+          firebase.initializeApp(firebaseConfig);
+          auth = firebase.auth();
+          db = firebase.firestore();
+        }
+      }catch(error){
+        el("loadingMessage").textContent = "初期化エラー";
+        el("spinner").style.display = "none";
+        el("errorDetail").textContent = `エラー: ${error.message}`;
+        el("errorDetail").style.display = "block";
+      }
 
       const FIXED_PASSWORD = "sayasei3367"; // 固定パスワード
       const STORAGE_KEY = "otd_money_v1";
@@ -1323,22 +1356,33 @@
 
       // 固定パスワードで自動ログイン
       async function autoLogin(){
+        if(!auth){
+          return;
+        }
         const email = passwordToEmail(FIXED_PASSWORD);
         try{
+          el("loadingMessage").textContent = "ログイン中...";
           // まずログインを試みる
           await auth.signInWithEmailAndPassword(email, FIXED_PASSWORD);
         }catch(error){
           if(error.code === "auth/user-not-found" || error.code === "auth/invalid-credential"){
             // アカウントが存在しない場合は新規作成
             try{
+              el("loadingMessage").textContent = "初回セットアップ中...";
               await auth.createUserWithEmailAndPassword(email, FIXED_PASSWORD);
             }catch(signupError){
               console.error("アカウント作成エラー:", signupError);
-              toast("初期化に失敗しました");
+              el("loadingMessage").textContent = "エラーが発生しました";
+              el("spinner").style.display = "none";
+              el("errorDetail").textContent = `アカウント作成エラー: ${signupError.message}`;
+              el("errorDetail").style.display = "block";
             }
           }else{
             console.error("ログインエラー:", error);
-            toast("ログインに失敗しました");
+            el("loadingMessage").textContent = "ログインエラー";
+            el("spinner").style.display = "none";
+            el("errorDetail").textContent = `エラー: ${error.message}`;
+            el("errorDetail").style.display = "block";
           }
         }
       }
