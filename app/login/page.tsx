@@ -1,38 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+
+const PASSWORD = 'sayasei3367'
+const AUTH_KEY = 'otoshidama_auth'
 
 export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem(AUTH_KEY) === PASSWORD) {
+      router.replace('/')
+    }
+  }, [router])
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
-    setLoading(true)
-
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      })
-
-      const data = await res.json()
-
-      if (data.success) {
-        router.push('/')
-        router.refresh()
-      } else {
-        setError(data.error || 'ログインに失敗しました')
-      }
-    } catch (err) {
-      setError('エラーが発生しました')
-    } finally {
-      setLoading(false)
+    if (password === PASSWORD) {
+      localStorage.setItem(AUTH_KEY, PASSWORD)
+      router.replace('/')
+    } else {
+      setError('パスワードが違います')
     }
   }
 
@@ -64,7 +55,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-            <label style={{ fontSize: '12px', color: '#64748b', fontWeight: '800', display: 'block', marginBottom: '6px' }}>
+            <label style={{ fontSize: '12px', color: '#64748b', fontWeight: 800, display: 'block', marginBottom: '6px' }}>
               共有パスワード
             </label>
             <input
@@ -72,6 +63,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="パスワードを入力"
+              autoFocus
               required
               style={{
                 width: '100%',
@@ -81,7 +73,8 @@ export default function LoginPage() {
                 background: '#f8fafc',
                 color: '#1e293b',
                 fontSize: '15px',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
             />
           </div>
@@ -102,7 +95,6 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
             style={{
               width: '100%',
               padding: '12px',
@@ -111,18 +103,13 @@ export default function LoginPage() {
               background: '#3b82f6',
               color: '#fff',
               fontSize: '14px',
-              fontWeight: '800',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.6 : 1
+              fontWeight: 800,
+              cursor: 'pointer'
             }}
           >
-            {loading ? 'ログイン中...' : 'ログイン'}
+            ログイン
           </button>
         </form>
-
-        <p style={{ fontSize: '12px', color: '#64748b', marginTop: '16px' }}>
-          パスワードは夫婦で共有してください
-        </p>
       </div>
     </div>
   )

@@ -1,6 +1,10 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+
+const PASSWORD = 'sayasei3367'
+const AUTH_KEY = 'otoshidama_auth'
 
 type Account = { id: string; name: string }
 type TxType = 'income' | 'expense'
@@ -57,6 +61,8 @@ function formatRowDate(dateISO: string){
 }
 
 export default function Home() {
+  const router = useRouter()
+  const [authChecked, setAuthChecked] = useState(false)
   const [data, setData] = useState<AppData | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewPeriod, setViewPeriod] = useState<Period>('year')
@@ -68,9 +74,22 @@ export default function Home() {
   }>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // 認証チェック
   useEffect(() => {
-    loadData()
-  }, [])
+    if (typeof window !== 'undefined') {
+      if (localStorage.getItem(AUTH_KEY) !== PASSWORD) {
+        router.replace('/login')
+        return
+      }
+      setAuthChecked(true)
+    }
+  }, [router])
+
+  useEffect(() => {
+    if (authChecked) {
+      loadData()
+    }
+  }, [authChecked])
 
   // ポーリングで他端末の更新を取得
   useEffect(() => {
@@ -168,13 +187,13 @@ export default function Home() {
     toastTimer.current = setTimeout(() => setToastMsg(''), 1800)
   }
 
-  async function handleLogout(){
+  function handleLogout(){
     if(!confirm('ログアウトしますか？')) return
-    await fetch('/api/auth', { method: 'DELETE' })
-    window.location.href = '/login'
+    localStorage.removeItem(AUTH_KEY)
+    router.replace('/login')
   }
 
-  if(loading || !data){
+  if(!authChecked || loading || !data){
     return (
       <div className="loading-screen">
         <div className="loading-box">
