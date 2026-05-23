@@ -1,14 +1,34 @@
 # お年玉管理アプリ
 
-2つのアカウント（子どもA・子どもB）でお年玉の入金・支出を管理できるシンプルなWebアプリです。
+2つのアカウント（さや・せいや）でお年玉の入金・支出を管理できるWebアプリです。
 
 ## 特徴
 
-- **ログイン不要**: すべてのデータはブラウザのローカルストレージに保存されます
+- **ログイン機能**: メール/パスワードでログインして複数端末でデータを共有
 - **2アカウント対応**: 複数の子どものお年玉を別々に管理できます
 - **期間フィルター**: 今年・今月・全期間での集計が可能です
-- **バックアップ機能**: データのエクスポート・インポートができます
+- **残額メーター**: 視覚的に残額を確認できます
+- **リアルタイム同期**: Firestoreでデータを自動同期
 - **PWA対応**: iPhoneのSafariで「ホーム画面に追加」するとアプリのように使えます
+
+## Firebase設定
+
+1. [Firebase Console](https://console.firebase.google.com/)でプロジェクトを作成
+2. Authentication を有効化（メール/パスワード認証を有効に）
+3. Firestore Database を作成（テストモードで開始）
+4. プロジェクト設定から Firebase SDK の設定値を取得
+5. `index.html` の Firebase 設定部分を自分のプロジェクト情報に更新
+
+```javascript
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+```
 
 ## デプロイ方法
 

@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#f8fafc" />
   <title>お年玉管理（2アカウント）</title>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
   <style>
     :root{
       --bg:#f8fafc;
@@ -479,6 +485,75 @@
     }
     .toast.show{display:block}
 
+    /* ログイン画面 */
+    .login-screen{
+      position:fixed;
+      inset:0;
+      background: linear-gradient(180deg, var(--bg-gradient) 0%, var(--bg) 100%);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:100;
+      padding:20px;
+    }
+    .login-screen.show{display:flex}
+    .login-box{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      padding:24px;
+      width:min(400px, 100%);
+    }
+    .login-box h2{
+      margin:0 0 8px;
+      font-size:20px;
+      color:var(--text);
+    }
+    .login-box .subtitle{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:20px;
+    }
+    .login-tabs{
+      display:flex;
+      gap:8px;
+      margin-bottom:16px;
+      border-bottom:1px solid var(--border);
+    }
+    .login-tab{
+      padding:10px 16px;
+      background:transparent;
+      border:0;
+      color:var(--muted);
+      font-weight:700;
+      font-size:14px;
+      cursor:pointer;
+      border-bottom:2px solid transparent;
+      transition:all .15s;
+    }
+    .login-tab.active{
+      color:var(--accent);
+      border-bottom-color:var(--accent);
+    }
+    .login-form{
+      display:none;
+    }
+    .login-form.active{
+      display:block;
+    }
+    .error-msg{
+      background:rgba(239,68,68,.1);
+      border:1px solid rgba(239,68,68,.3);
+      color:var(--danger);
+      padding:10px 12px;
+      border-radius:12px;
+      font-size:13px;
+      margin-bottom:12px;
+      display:none;
+    }
+    .error-msg.show{display:block}
+
     @media (max-width: 420px){
       .balance .amount{font-size: 30px}
       .memo{max-width: 48vw}
@@ -489,16 +564,64 @@
 <body>
   <div class="toast" id="toast"></div>
 
-  <div class="wrap">
+  <!-- ログイン画面 -->
+  <div class="login-screen show" id="loginScreen">
+    <div class="login-box">
+      <h2>お年玉管理</h2>
+      <div class="subtitle">夫婦で共有して管理</div>
+
+      <div class="login-tabs">
+        <button class="login-tab active" data-tab="login">ログイン</button>
+        <button class="login-tab" data-tab="signup">新規登録</button>
+      </div>
+
+      <div id="loginError" class="error-msg"></div>
+
+      <!-- ログインフォーム -->
+      <form class="login-form active" id="loginForm">
+        <div class="field full">
+          <label>メールアドレス</label>
+          <input type="email" id="loginEmail" placeholder="example@email.com" required>
+        </div>
+        <div class="field full">
+          <label>パスワード</label>
+          <input type="password" id="loginPassword" placeholder="6文字以上" required>
+        </div>
+        <button type="submit" class="btn primary" style="width:100%;margin-top:8px">ログイン</button>
+      </form>
+
+      <!-- 新規登録フォーム -->
+      <form class="login-form" id="signupForm">
+        <div class="field full">
+          <label>メールアドレス</label>
+          <input type="email" id="signupEmail" placeholder="example@email.com" required>
+        </div>
+        <div class="field full">
+          <label>パスワード</label>
+          <input type="password" id="signupPassword" placeholder="6文字以上" required>
+        </div>
+        <div class="field full">
+          <label>パスワード（確認）</label>
+          <input type="password" id="signupPasswordConfirm" placeholder="もう一度入力" required>
+        </div>
+        <button type="submit" class="btn primary" style="width:100%;margin-top:8px">新規登録</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="wrap" id="mainApp" style="display:none">
     <header>
       <div class="title">
         <h1>お年玉管理</h1>
-        <div class="sub">端末内保存（ログインなし）</div>
+        <div class="sub" id="userEmail">読み込み中...</div>
       </div>
 
-      <div class="seg" id="accountSeg">
-        <button type="button" data-account="a">子どもA</button>
-        <button type="button" data-account="b">子どもB</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="seg" id="accountSeg">
+          <button type="button" data-account="a">さや</button>
+          <button type="button" data-account="b">せいや</button>
+        </div>
+        <button class="btn small ghost" id="logoutBtn">ログアウト</button>
       </div>
     </header>
 
@@ -576,6 +699,21 @@
 
   <script>
     (() => {
+      // Firebase設定（自分のプロジェクト情報に置き換えてください）
+      const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT.firebaseapp.com",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT.appspot.com",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId: "YOUR_APP_ID"
+      };
+
+      // Firebase初期化
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+
       const STORAGE_KEY = "otd_money_v1";
       const fmtJPY = new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY", maximumFractionDigits: 0 });
 
@@ -585,6 +723,8 @@
         data: null,
         viewPeriod: "year", // year | month | all
         viewMode: "home",   // home | list
+        user: null,
+        unsubscribe: null
       };
 
       function todayISO(){
@@ -616,31 +756,54 @@
         };
       }
 
-      function load(){
+      async function loadFromFirestore(){
+        if(!state.user) return defaultData();
         try{
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if(!raw) return defaultData();
-          const parsed = JSON.parse(raw);
-          if(!parsed || typeof parsed !== "object") return defaultData();
-          // 軽い補正
-          parsed.accounts = parsed.accounts?.length ? parsed.accounts : defaultData().accounts;
-          parsed.activeAccountId = parsed.activeAccountId || "a";
-          parsed.transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
-
-          // アカウント名を新しい名前に更新（マイグレーション）
-          if(parsed.accounts.length >= 2){
-            parsed.accounts[0].name = "さや";
-            parsed.accounts[1].name = "せいや";
+          const docRef = db.collection('users').doc(state.user.uid);
+          const doc = await docRef.get();
+          if(doc.exists){
+            const data = doc.data();
+            // 軽い補正
+            data.accounts = data.accounts?.length ? data.accounts : defaultData().accounts;
+            data.activeAccountId = data.activeAccountId || "a";
+            data.transactions = Array.isArray(data.transactions) ? data.transactions : [];
+            return data;
           }
-
-          return parsed;
+          return defaultData();
         }catch(e){
+          console.error('Firestore読み込みエラー:', e);
           return defaultData();
         }
       }
 
-      function save(){
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+      async function saveToFirestore(){
+        if(!state.user || !state.data) return;
+        try{
+          const docRef = db.collection('users').doc(state.user.uid);
+          await docRef.set(state.data);
+        }catch(e){
+          console.error('Firestore保存エラー:', e);
+          toast('保存に失敗しました');
+        }
+      }
+
+      function setupRealtimeSync(){
+        if(!state.user) return;
+        if(state.unsubscribe) state.unsubscribe();
+
+        const docRef = db.collection('users').doc(state.user.uid);
+        state.unsubscribe = docRef.onSnapshot((doc) => {
+          if(doc.exists){
+            const data = doc.data();
+            data.accounts = data.accounts?.length ? data.accounts : defaultData().accounts;
+            data.activeAccountId = data.activeAccountId || "a";
+            data.transactions = Array.isArray(data.transactions) ? data.transactions : [];
+            state.data = data;
+            render();
+          }
+        }, (error) => {
+          console.error('リアルタイム同期エラー:', error);
+        });
       }
 
       function toast(msg){
@@ -685,7 +848,7 @@
 
       function setActiveAccount(id){
         state.data.activeAccountId = id;
-        save();
+        saveToFirestore();
         render();
       }
 
@@ -940,7 +1103,7 @@
             createdAt: new Date().toISOString()
           };
           state.data.transactions.push(tx);
-          save();
+          saveToFirestore();
           closeModal();
           toast("保存しました");
           render();
@@ -1118,7 +1281,7 @@
           const idx = state.data.transactions.findIndex(x => x.id === txId);
           if(idx >= 0){
             state.data.transactions.splice(idx,1);
-            save();
+            saveToFirestore();
             closeModal();
             toast("削除しました");
             render();
@@ -1196,7 +1359,7 @@
             // 最低限の形だけチェック
             if(!Array.isArray(parsed.accounts) || !Array.isArray(parsed.transactions)) throw new Error("shape");
             state.data = parsed;
-            save();
+            saveToFirestore();
             closeModal();
             toast("復元しました");
             render();
@@ -1210,6 +1373,109 @@
         actions.appendChild(restore);
 
         openModal("バックアップ", wrap, actions);
+      }
+
+      function showError(msg){
+        const err = el("loginError");
+        err.textContent = msg;
+        err.classList.add("show");
+        setTimeout(() => err.classList.remove("show"), 3000);
+      }
+
+      function showMainApp(){
+        el("loginScreen").classList.remove("show");
+        el("mainApp").style.display = "block";
+        el("userEmail").textContent = state.user?.email || "";
+      }
+
+      function showLoginScreen(){
+        el("loginScreen").classList.add("show");
+        el("mainApp").style.display = "none";
+      }
+
+      async function handleLogin(email, password){
+        try{
+          await auth.signInWithEmailAndPassword(email, password);
+        }catch(error){
+          let msg = "ログインに失敗しました";
+          if(error.code === "auth/invalid-credential") msg = "メールアドレスまたはパスワードが間違っています";
+          else if(error.code === "auth/user-not-found") msg = "ユーザーが見つかりません";
+          else if(error.code === "auth/wrong-password") msg = "パスワードが間違っています";
+          showError(msg);
+        }
+      }
+
+      async function handleSignup(email, password, passwordConfirm){
+        if(password !== passwordConfirm){
+          showError("パスワードが一致しません");
+          return;
+        }
+        if(password.length < 6){
+          showError("パスワードは6文字以上で入力してください");
+          return;
+        }
+        try{
+          await auth.createUserWithEmailAndPassword(email, password);
+        }catch(error){
+          let msg = "登録に失敗しました";
+          if(error.code === "auth/email-already-in-use") msg = "このメールアドレスは既に使用されています";
+          else if(error.code === "auth/invalid-email") msg = "メールアドレスの形式が正しくありません";
+          else if(error.code === "auth/weak-password") msg = "パスワードが弱すぎます";
+          showError(msg);
+        }
+      }
+
+      function bindAuth(){
+        // タブ切り替え
+        document.querySelectorAll(".login-tab").forEach(tab => {
+          tab.onclick = () => {
+            const target = tab.dataset.tab;
+            document.querySelectorAll(".login-tab").forEach(t => t.classList.remove("active"));
+            document.querySelectorAll(".login-form").forEach(f => f.classList.remove("active"));
+            tab.classList.add("active");
+            el(target === "login" ? "loginForm" : "signupForm").classList.add("active");
+            el("loginError").classList.remove("show");
+          };
+        });
+
+        // ログインフォーム
+        el("loginForm").onsubmit = (e) => {
+          e.preventDefault();
+          const email = el("loginEmail").value;
+          const password = el("loginPassword").value;
+          handleLogin(email, password);
+        };
+
+        // 新規登録フォーム
+        el("signupForm").onsubmit = (e) => {
+          e.preventDefault();
+          const email = el("signupEmail").value;
+          const password = el("signupPassword").value;
+          const passwordConfirm = el("signupPasswordConfirm").value;
+          handleSignup(email, password, passwordConfirm);
+        };
+
+        // ログアウト
+        el("logoutBtn").onclick = async () => {
+          if(confirm("ログアウトしますか？")){
+            await auth.signOut();
+          }
+        };
+
+        // 認証状態の監視
+        auth.onAuthStateChanged(async (user) => {
+          state.user = user;
+          if(user){
+            state.data = await loadFromFirestore();
+            setupRealtimeSync();
+            showMainApp();
+            render();
+          }else{
+            if(state.unsubscribe) state.unsubscribe();
+            state.data = null;
+            showLoginScreen();
+          }
+        });
       }
 
       function bind(){
@@ -1231,9 +1497,8 @@
       }
 
       // init
-      state.data = load();
+      bindAuth();
       bind();
-      render();
     })();
   </script>
 </body>
