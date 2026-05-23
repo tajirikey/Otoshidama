@@ -1,7 +1,7 @@
 {
-  "buildCommand": null,
-  "devCommand": null,
-  "installCommand": null,
-  "framework": null,
-  "outputDirectory": "."
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "env": {
+    "PASSWORD": "sayasei3367"
+  }
 }
