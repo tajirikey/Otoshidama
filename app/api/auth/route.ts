@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
     if (password === PASSWORD) {
       const response = NextResponse.json({ success: true })
 
-      // Cookieにパスワードを保存（30日間有効）
       response.cookies.set('auth', PASSWORD, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -31,4 +30,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// ログアウト
+export async function DELETE() {
+  const response = NextResponse.json({ success: true })
+  response.cookies.delete('auth')
+  return response
 }
