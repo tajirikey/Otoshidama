@@ -24,7 +24,7 @@ type AppData = {
   activeAccountId: string
   transactions: Transaction[]
 }
-type Period = 'year' | 'month' | 'all'
+type Period = 'year' | 'month' | 'all' | 'monthly'
 
 const fmtJPY = new Intl.NumberFormat('ja-JP', {
   style: 'currency', currency: 'JPY', maximumFractionDigits: 0
@@ -59,6 +59,70 @@ function formatRowDate(dateISO: string){
   return `${m}/${d}`
 }
 
+function formatMonth(yearMonth: string){
+  const y = yearMonth.slice(0, 4)
+  const m = Number(yearMonth.slice(5, 7))
+  return `${y}年${m}月`
+}
+
+function filterTx(transactions: Transaction[], accountId: string, period: Period){
+  const tx = transactions.filter(t => t.accountId === accountId)
+  if(period === 'all' || period === 'monthly') return tx
+  const now = new Date()
+  const nowY = String(now.getFullYear())
+  const nowM = String(now.getMonth()+1).padStart(2, '0')
+  if(period === 'year') return tx.filter(t => (t.date || '').slice(0,4) === nowY)
+  if(period === 'month') return tx.filter(t => (t.date || '').slice(0,7) === `${nowY}-${nowM}`)
+  return tx
+}
+
+function sortTxDesc(list: Transaction[]){
+  return [...list].sort((a, b) => {
+    if(a.date !== b.date) return a.date > b.date ? -1 : 1
+    return (b.createdAt || '') > (a.createdAt || '') ? 1 : -1
+  })
+}
+
+function sums(list: Transaction[]){
+  let income = 0, expense = 0
+  for(const t of list){
+    const amt = Number(t.amount) || 0
+    if(t.type === 'income') income += amt
+    else expense += amt
+  }
+  return { income, expense, balance: income - expense }
+}
+
+function groupByMonth(list: Transaction[]): Map<string, Transaction[]>{
+  const map = new Map<string, Transaction[]>()
+  for(const t of list){
+    const month = (t.date || '').slice(0, 7)
+    if(!month) continue
+    if(!map.has(month)) map.set(month, [])
+    map.get(month)!.push(t)
+  }
+  return map
+}
+
+function TxRow({ t, onClick }: { t: Transaction; onClick: () => void }){
+  const cat = t.type === 'expense' && t.category ? t.category : (t.type === 'income' ? '入金' : '支出')
+  const memo = t.memo && t.memo.trim() ? t.memo : cat
+  return (
+    <div className="row" onClick={onClick}>
+      <div className="left">
+        <div className="topline">
+          <span className="date">{formatRowDate(t.date)}</span>
+          <span className="cat">{cat}</span>
+          <span className="memo">{memo}</span>
+        </div>
+      </div>
+      <div className={`amt ${t.type}`}>
+        {t.type === 'income' ? '+' : '-'}{fmtJPY.format(t.amount)}
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
   const router = useRouter()
   const [authChecked, setAuthChecked] = useState(false)
@@ -68,13 +132,12 @@ export default function Home() {
   const [viewPeriod, setViewPeriod] = useState<Period>('year')
   const [toastMsg, setToastMsg] = useState('')
   const [modal, setModal] = useState<null | {
-    type: 'add' | 'list' | 'detail' | 'backup'
+    type: 'add' | 'detail' | 'backup'
     txType?: TxType
     txId?: string
   }>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // 認証チェック
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (localStorage.getItem(AUTH_KEY) !== AUTH_VALUE) {
@@ -86,17 +149,12 @@ export default function Home() {
   }, [router])
 
   useEffect(() => {
-    if (authChecked) {
-      loadData()
-    }
+    if (authChecked) loadData()
   }, [authChecked])
 
-  // ポーリングで他端末の更新を取得
   useEffect(() => {
     if(!data) return
-    const interval = setInterval(() => {
-      refreshFromServer()
-    }, 5000)
+    const interval = setInterval(refreshFromServer, 5000)
     return () => clearInterval(interval)
   }, [data])
 
@@ -104,9 +162,7 @@ export default function Home() {
     setLoadError('')
     try{
       const res = await fetch('/api/data', { cache: 'no-store' })
-      if(!res.ok){
-        throw new Error(`status=${res.status}`)
-      }
+      if(!res.ok) throw new Error(`status=${res.status}`)
       const json = await res.json()
       setData(normalizeData(json.data ?? defaultData()))
       setLoading(false)
@@ -139,7 +195,6 @@ export default function Home() {
       activeAccountId: d.activeAccountId || 'a',
       transactions: Array.isArray(d.transactions) ? d.transactions : [],
     }
-    // 名前を強制更新
     if(result.accounts.length >= 2){
       result.accounts[0].name = 'さや'
       result.accounts[1].name = 'せいや'
@@ -155,9 +210,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: newData }),
       })
-      if(!res.ok){
-        throw new Error(`status=${res.status}`)
-      }
+      if(!res.ok) throw new Error(`status=${res.status}`)
     }catch(e){
       console.error('保存エラー:', e)
       toast('保存に失敗しました')
@@ -201,12 +254,10 @@ export default function Home() {
   const filteredTx = filterTx(data.transactions, activeAccount.id, viewPeriod)
   const s = sums(filteredTx)
   const totalCount = data.transactions.filter(t => t.accountId === activeAccount.id).length
-
-  const periodLabel = viewPeriod === 'year' ? '今年' : viewPeriod === 'month' ? '今月' : '全部'
   const meterPercent = s.income > 0 ? Math.max(0, Math.min(100, (s.balance / s.income) * 100)) : 0
   const meterClass = meterPercent < 30 ? 'danger' : meterPercent < 60 ? 'warn' : ''
-
-  const recent = sortTxDesc(data.transactions.filter(t => t.accountId === activeAccount.id)).slice(0, 5)
+  const sortedTx = sortTxDesc(filteredTx)
+  const monthGroups = groupByMonth(sortedTx)
 
   return (
     <>
@@ -218,20 +269,17 @@ export default function Home() {
             <h1>おこづかい管理</h1>
             <div className="sub">さやとせいやの共有アカウント</div>
           </div>
-
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div className="seg">
-              {data.accounts.map((account) => (
-                <button
-                  key={account.id}
-                  type="button"
-                  className={data.activeAccountId === account.id ? 'active' : ''}
-                  onClick={() => saveData({ ...data, activeAccountId: account.id })}
-                >
-                  {account.name}
-                </button>
-              ))}
-            </div>
+          <div className="seg">
+            {data.accounts.map((account) => (
+              <button
+                key={account.id}
+                type="button"
+                className={data.activeAccountId === account.id ? 'active' : ''}
+                onClick={() => saveData({ ...data, activeAccountId: account.id })}
+              >
+                {account.name}
+              </button>
+            ))}
           </div>
         </header>
 
@@ -242,7 +290,6 @@ export default function Home() {
                 <div className="label">あといくら</div>
                 <div className="amount">{fmtJPY.format(s.balance)}</div>
               </div>
-              <div className="badge">{periodLabel}</div>
             </div>
 
             <div className="meter-wrap">
@@ -276,32 +323,58 @@ export default function Home() {
         <div className="section">
           <div className="toolbar">
             <h2 style={{ margin: 0 }}>明細</h2>
-            <button className="btn small ghost" onClick={() => setModal({ type: 'list' })}>一覧を見る</button>
+            <div className="chips">
+              {(['year', 'month', 'all', 'monthly'] as Period[]).map(p => (
+                <button key={p} type="button"
+                  className={`chip ${viewPeriod === p ? 'active' : ''}`}
+                  onClick={() => setViewPeriod(p)}>
+                  {p === 'year' ? '今年' : p === 'month' ? '今月' : p === 'all' ? '全部' : '月別'}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="card list">
-            {recent.length === 0 ? (
-              <div className="row" style={{ cursor: 'default' }}>
-                <div className="left">
-                  <div className="memo" style={{ maxWidth: '100%' }}>まだ記録がありません</div>
-                  <div className="date">入金・支出を追加してください</div>
+            {viewPeriod === 'monthly' ? (
+              monthGroups.size === 0 ? (
+                <div className="row" style={{ cursor: 'default' }}>
+                  <div className="left"><div className="memo" style={{ maxWidth: '100%' }}>記録がありません</div></div>
+                  <div className="amt" style={{ color: 'var(--muted)' }}>—</div>
                 </div>
-                <div className="amt" style={{ color: 'var(--muted)' }}>—</div>
-              </div>
-            ) : recent.map(t => (
-              <div key={t.id} className="row" onClick={() => setModal({ type: 'detail', txId: t.id })}>
-                <div className="left">
-                  <div className="topline">
-                    <span className="date">{formatRowDate(t.date)}</span>
-                    <span className="cat">{t.type === 'expense' && t.category ? t.category : (t.type === 'income' ? '入金' : '支出')}</span>
-                    <span className="memo">{t.memo && t.memo.trim() ? t.memo : (t.type === 'income' ? '入金' : '支出')}</span>
+              ) : (
+                Array.from(monthGroups.entries()).map(([month, txs], i) => {
+                  const ms = sums(txs)
+                  return (
+                    <div key={month}>
+                      <div className={`month-header${i === 0 ? ' first' : ''}`}>
+                        <span className="month-label">{formatMonth(month)}</span>
+                        <span className="month-sums">
+                          <span style={{ color: 'var(--ok)' }}>+{fmtJPY.format(ms.income)}</span>
+                          <span style={{ color: 'var(--danger)' }}>−{fmtJPY.format(ms.expense)}</span>
+                        </span>
+                      </div>
+                      {txs.map(t => (
+                        <TxRow key={t.id} t={t} onClick={() => setModal({ type: 'detail', txId: t.id })} />
+                      ))}
+                    </div>
+                  )
+                })
+              )
+            ) : (
+              sortedTx.length === 0 ? (
+                <div className="row" style={{ cursor: 'default' }}>
+                  <div className="left">
+                    <div className="memo" style={{ maxWidth: '100%' }}>この期間の記録がありません</div>
+                    <div className="date">入金・支出を追加してください</div>
                   </div>
+                  <div className="amt" style={{ color: 'var(--muted)' }}>—</div>
                 </div>
-                <div className={`amt ${t.type}`}>
-                  {t.type === 'income' ? '+' : '-'}{fmtJPY.format(t.amount)}
-                </div>
-              </div>
-            ))}
+              ) : (
+                sortedTx.map(t => (
+                  <TxRow key={t.id} t={t} onClick={() => setModal({ type: 'detail', txId: t.id })} />
+                ))
+              )
+            )}
           </div>
 
           <div className="footerline">
@@ -326,17 +399,6 @@ export default function Home() {
             setModal(null)
             toast('保存しました')
           }}
-        />
-      )}
-
-      {modal?.type === 'list' && (
-        <ListModal
-          data={data}
-          viewPeriod={viewPeriod}
-          onChangePeriod={setViewPeriod}
-          onClose={() => setModal(null)}
-          onDetail={(txId) => setModal({ type: 'detail', txId })}
-          onAdd={(txType) => setModal({ type: 'add', txType })}
         />
       )}
 
@@ -369,35 +431,6 @@ export default function Home() {
   )
 }
 
-function filterTx(transactions: Transaction[], accountId: string, period: Period){
-  const tx = transactions.filter(t => t.accountId === accountId)
-  if(period === 'all') return tx
-  const now = new Date()
-  const nowY = String(now.getFullYear())
-  const nowM = String(now.getMonth()+1).padStart(2, '0')
-  if(period === 'year') return tx.filter(t => (t.date || '').slice(0,4) === nowY)
-  if(period === 'month') return tx.filter(t => (t.date || '').slice(0,7) === `${nowY}-${nowM}`)
-  return tx
-}
-
-function sortTxDesc(list: Transaction[]){
-  return [...list].sort((a, b) => {
-    if(a.date !== b.date) return a.date > b.date ? -1 : 1
-    return (b.createdAt || '') > (a.createdAt || '') ? 1 : -1
-  })
-}
-
-function sums(list: Transaction[]){
-  let income = 0, expense = 0
-  for(const t of list){
-    const amt = Number(t.amount) || 0
-    if(t.type === 'income') income += amt
-    else expense += amt
-  }
-  return { income, expense, balance: income - expense }
-}
-
-// 入金・支出追加モーダル
 function AddModal({ type, data, viewPeriod, onClose, onSave }: {
   type: TxType
   data: AppData
@@ -416,8 +449,8 @@ function AddModal({ type, data, viewPeriod, onClose, onSave }: {
   let previewBalance = 0
   let previewPercent = 0
   if(showPreview){
-    const filteredTx = filterTx(data.transactions, data.activeAccountId, viewPeriod)
-    const s = sums(filteredTx)
+    const ftx = filterTx(data.transactions, data.activeAccountId, viewPeriod)
+    const s = sums(ftx)
     previewBalance = s.balance - inputAmt
     previewPercent = s.income > 0 ? Math.max(0, Math.min(100, (previewBalance / s.income) * 100)) : 0
   }
@@ -468,7 +501,7 @@ function AddModal({ type, data, viewPeriod, onClose, onSave }: {
             <div className="field full">
               <label>カテゴリ</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)}>
-                {['おもちゃ','本','ゲーム','おかし','外出','貯金','その他'].map(c => (
+                {['おもちゃ','本','ゲーム','おかし','シール','貯金','その他'].map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
@@ -506,77 +539,6 @@ function AddModal({ type, data, viewPeriod, onClose, onSave }: {
   )
 }
 
-// 明細一覧モーダル
-function ListModal({ data, viewPeriod, onChangePeriod, onClose, onDetail, onAdd }: {
-  data: AppData
-  viewPeriod: Period
-  onChangePeriod: (p: Period) => void
-  onClose: () => void
-  onDetail: (txId: string) => void
-  onAdd: (type: TxType) => void
-}){
-  const activeAccount = data.accounts.find(a => a.id === data.activeAccountId) || data.accounts[0]
-  const list = sortTxDesc(filterTx(data.transactions, activeAccount.id, viewPeriod))
-  const periodLabel = viewPeriod === 'year' ? '今年' : viewPeriod === 'month' ? '今月' : '全部'
-
-  return (
-    <div className="overlay show" onClick={(e) => { if(e.target === e.currentTarget) onClose() }}>
-      <div className="sheet">
-        <div className="sheet-header">
-          <div className="h">{activeAccount.name}の明細（{periodLabel}）</div>
-          <button className="x" onClick={onClose}>×</button>
-        </div>
-        <div className="body">
-          <div className="toolbar" style={{ marginBottom: 8 }}>
-            <div className="chips">
-              {(['year','month','all'] as Period[]).map(p => (
-                <button key={p} type="button"
-                  className={`chip ${viewPeriod === p ? 'active' : ''}`}
-                  onClick={() => onChangePeriod(p)}>
-                  {p === 'year' ? '今年' : p === 'month' ? '今月' : '全部'}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn small primary" onClick={() => onAdd('income')}>入金</button>
-              <button className="btn small" onClick={() => onAdd('expense')}>支出</button>
-            </div>
-          </div>
-
-          <div className="card list">
-            {list.length === 0 ? (
-              <div className="row" style={{ cursor: 'default' }}>
-                <div className="left">
-                  <div className="memo" style={{ maxWidth: '100%' }}>この期間の記録がありません</div>
-                  <div className="date">期間を切り替えるか、追加してください</div>
-                </div>
-                <div className="amt" style={{ color: 'var(--muted)' }}>—</div>
-              </div>
-            ) : list.map(t => (
-              <div key={t.id} className="row" onClick={() => onDetail(t.id)}>
-                <div className="left">
-                  <div className="topline">
-                    <span className="date">{formatRowDate(t.date)}</span>
-                    <span className="cat">{t.type === 'expense' && t.category ? t.category : (t.type === 'income' ? '入金' : '支出')}</span>
-                    <span className="memo">{t.memo && t.memo.trim() ? t.memo : (t.type === 'income' ? '入金' : '支出')}</span>
-                  </div>
-                </div>
-                <div className={`amt ${t.type}`}>
-                  {t.type === 'income' ? '+' : '-'}{fmtJPY.format(t.amount)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="actionsRow">
-          <button className="btn" onClick={onClose}>閉じる</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// 詳細モーダル
 function DetailModal({ tx, onClose, onDelete }: {
   tx: Transaction
   onClose: () => void
@@ -622,7 +584,6 @@ function DetailModal({ tx, onClose, onDelete }: {
   )
 }
 
-// バックアップモーダル
 function BackupModal({ data, onClose, onRestore, onToast }: {
   data: AppData
   onClose: () => void

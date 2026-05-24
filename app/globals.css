@@ -224,6 +224,18 @@ header{
   font-size:12px; font-weight:600;
 }
 
+.month-header{
+  display:flex; align-items:center;
+  justify-content:space-between;
+  padding: 7px 14px;
+  background: var(--card2);
+  border-top: 1px solid var(--border);
+  font-size: 12px; font-weight: 800;
+}
+.month-header.first{ border-top: 0; }
+.month-header .month-label{ color: var(--text); }
+.month-header .month-sums{ display:flex; gap:10px; }
+
 .overlay{
   position:fixed; inset:0;
   background: rgba(0,0,0,.35);
@@ -353,4 +365,5 @@ input::placeholder, textarea::placeholder{color: var(--muted); opacity:.7}
   .memo{max-width: 48vw}
   .seg button{min-width:80px; padding:10px 12px}
   .grid{grid-template-columns: 1fr}
+  input, select, textarea{ font-size: 16px; }
 }
