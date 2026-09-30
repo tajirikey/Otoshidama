@@ -224,6 +224,36 @@ header{
   font-size:12px; font-weight:600;
 }
 
+.challenges{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap:10px;
+}
+.challenge{
+  appearance:none; cursor:pointer; font-family:inherit; text-align:left;
+  display:flex; flex-direction:column; gap:4px;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  transition: all .15s;
+}
+.challenge:active{transform: translateY(1px)}
+.challenge .c-name{font-size:14px; font-weight:800; word-break:break-word;}
+.challenge .c-reward{font-size:13px; font-weight:900; color:var(--ok);}
+.challenge .c-count{font-size:11px; font-weight:700; color:var(--muted);}
+.challenge.done{background: var(--card2); box-shadow:none; cursor:default;}
+.challenge.done .c-name::before{content:'✓ '; color:var(--ok);}
+.challenge-edit{
+  display:grid;
+  grid-template-columns: 1fr 90px auto;
+  gap:8px; align-items:center;
+  margin-bottom:8px;
+}
+.field-label{font-size:12px; color: var(--muted); font-weight:800;}
+
 .month-header{
   display:flex; align-items:center;
   justify-content:space-between;

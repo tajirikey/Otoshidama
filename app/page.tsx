@@ -17,12 +17,15 @@ type Transaction = {
   category: string
   memo: string
   createdAt: string
+  challengeId?: string
 }
+type Challenge = { id: string; name: string; reward: number }
 type AppData = {
   version: number
   accounts: Account[]
   activeAccountId: string
   transactions: Transaction[]
+  challenges: Challenge[]
 }
 type Period = 'year' | 'month' | 'all' | 'monthly'
 
@@ -39,6 +42,7 @@ function defaultData(): AppData {
     ],
     activeAccountId: 'a',
     transactions: [],
+    challenges: [],
   }
 }
 
@@ -105,7 +109,7 @@ function groupByMonth(list: Transaction[]): Map<string, Transaction[]>{
 }
 
 function TxRow({ t, onClick }: { t: Transaction; onClick: () => void }){
-  const cat = t.type === 'expense' && t.category ? t.category : (t.type === 'income' ? '入金' : '支出')
+  const cat = t.category ? t.category : (t.type === 'income' ? '入金' : '支出')
   const memo = t.memo && t.memo.trim() ? t.memo : cat
   return (
     <div className="row" onClick={onClick}>
@@ -132,7 +136,7 @@ export default function Home() {
   const [viewPeriod, setViewPeriod] = useState<Period>('year')
   const [toastMsg, setToastMsg] = useState('')
   const [modal, setModal] = useState<null | {
-    type: 'add' | 'detail' | 'backup'
+    type: 'add' | 'detail' | 'backup' | 'challenges'
     txType?: TxType
     txId?: string
   }>(null)
@@ -194,6 +198,7 @@ export default function Home() {
       accounts: Array.isArray(d.accounts) && d.accounts.length >= 2 ? d.accounts : defaults.accounts,
       activeAccountId: d.activeAccountId || 'a',
       transactions: Array.isArray(d.transactions) ? d.transactions : [],
+      challenges: Array.isArray(d.challenges) ? d.challenges : [],
     }
     if(result.accounts.length >= 2){
       result.accounts[0].name = 'さや'
@@ -258,6 +263,29 @@ export default function Home() {
   const meterClass = meterPercent < 30 ? 'danger' : meterPercent < 60 ? 'warn' : ''
   const sortedTx = sortTxDesc(filteredTx)
   const monthGroups = groupByMonth(sortedTx)
+  const today = todayISO()
+  const challengeTx = data.transactions.filter(t => t.challengeId && t.accountId === activeAccount.id)
+
+  async function handleChallenge(c: Challenge){
+    if(!data) return
+    if(challengeTx.some(t => t.challengeId === c.id && t.date === today)){
+      toast('今日はもう記録ずみです')
+      return
+    }
+    const tx: Transaction = {
+      id: uid(),
+      accountId: activeAccount.id,
+      type: 'income',
+      date: today,
+      amount: c.reward,
+      category: 'チャレンジ',
+      memo: c.name,
+      challengeId: c.id,
+      createdAt: new Date().toISOString(),
+    }
+    await saveData({ ...data, transactions: [...data.transactions, tx] })
+    toast(`${c.name} +${fmtJPY.format(c.reward)}`)
+  }
 
   return (
     <>
@@ -318,6 +346,37 @@ export default function Home() {
               <button className="btn" onClick={() => setModal({ type: 'add', txType: 'expense' })}>支出を追加</button>
             </div>
           </div>
+        </div>
+
+        <div className="section">
+          <div className="toolbar">
+            <h2 style={{ margin: 0 }}>チャレンジ</h2>
+            <button className="btn small ghost" onClick={() => setModal({ type: 'challenges' })}>設定</button>
+          </div>
+          {data.challenges.length === 0 ? (
+            <div className="card">
+              <div className="inner" style={{ padding: '12px 14px' }}>
+                <div className="hint" style={{ marginTop: 0 }}>「設定」からチャレンジを追加してください</div>
+              </div>
+            </div>
+          ) : (
+            <div className="challenges">
+              {data.challenges.map(c => {
+                const count = challengeTx.filter(t => t.challengeId === c.id).length
+                const done = challengeTx.some(t => t.challengeId === c.id && t.date === today)
+                return (
+                  <button key={c.id} type="button"
+                    className={`challenge${done ? ' done' : ''}`}
+                    disabled={done}
+                    onClick={() => handleChallenge(c)}>
+                    <span className="c-name">{c.name}</span>
+                    <span className="c-reward">+{fmtJPY.format(c.reward)}</span>
+                    <span className="c-count">{done ? `今日クリア！ ・ ${count}回` : `${count}回`}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div className="section">
@@ -420,14 +479,89 @@ export default function Home() {
           data={data}
           onClose={() => setModal(null)}
           onRestore={async (newData) => {
-            await saveData(newData)
+            await saveData(normalizeData(newData))
             setModal(null)
             toast('復元しました')
           }}
           onToast={toast}
         />
       )}
+
+      {modal?.type === 'challenges' && (
+        <ChallengeModal
+          challenges={data.challenges}
+          onClose={() => setModal(null)}
+          onSave={async (challenges) => {
+            setModal(null)
+            await saveData({ ...data, challenges })
+            toast('チャレンジを保存しました')
+          }}
+        />
+      )}
     </>
+  )
+}
+
+function ChallengeModal({ challenges, onClose, onSave }: {
+  challenges: Challenge[]
+  onClose: () => void
+  onSave: (challenges: Challenge[]) => void
+}){
+  const [items, setItems] = useState(challenges.map(c => ({ id: c.id, name: c.name, reward: String(c.reward) })))
+
+  function update(id: string, patch: Partial<{ name: string; reward: string }>){
+    setItems(items.map(i => i.id === id ? { ...i, ...patch } : i))
+  }
+
+  function handleSave(){
+    const result: Challenge[] = []
+    for(const i of items){
+      const name = i.name.trim()
+      if(!name) continue
+      const reward = Number(i.reward)
+      if(!Number.isFinite(reward) || reward <= 0){
+        alert(`「${name}」の報酬を入力してください`)
+        return
+      }
+      result.push({ id: i.id, name, reward: Math.floor(reward) })
+    }
+    onSave(result)
+  }
+
+  return (
+    <div className="overlay show" onClick={(e) => { if(e.target === e.currentTarget) onClose() }}>
+      <div className="sheet">
+        <div className="sheet-header">
+          <div className="h">チャレンジ設定</div>
+          <button className="x" onClick={onClose}>×</button>
+        </div>
+        <div className="body">
+          <div className="challenge-edit" style={{ marginBottom: 6 }}>
+            <label className="field-label">内容</label>
+            <label className="field-label">報酬（円）</label>
+            <span></span>
+          </div>
+          {items.map(i => (
+            <div key={i.id} className="challenge-edit">
+              <input placeholder="例：お手伝い" value={i.name}
+                onChange={(e) => update(i.id, { name: e.target.value })} />
+              <input type="number" inputMode="numeric" min="0" placeholder="10" value={i.reward}
+                onChange={(e) => update(i.id, { reward: e.target.value })} />
+              <button className="btn small ghost" onClick={() => setItems(items.filter(x => x.id !== i.id))}>削除</button>
+            </div>
+          ))}
+          <button className="btn small" style={{ width: '100%' }}
+            onClick={() => setItems([...items, { id: uid(), name: '', reward: '' }])}>
+            ＋ チャレンジを追加
+          </button>
+          <div className="hint">チャレンジは1つにつき1日1回まで記録できます。報酬を変えても、過去の記録の金額は変わりません。</div>
+        </div>
+        <div className="actionsRow">
+          <button className="btn" onClick={onClose}>キャンセル</button>
+          <button className="btn primary" onClick={handleSave}>保存</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -544,7 +678,7 @@ function DetailModal({ tx, onClose, onDelete }: {
   onClose: () => void
   onDelete: () => void
 }){
-  const cat = tx.type === 'expense' && tx.category ? tx.category : (tx.type === 'income' ? '入金' : '支出')
+  const cat = tx.category ? tx.category : (tx.type === 'income' ? '入金' : '支出')
   const memo = tx.memo && tx.memo.trim() ? tx.memo : '—'
 
   return (
