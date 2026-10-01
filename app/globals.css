@@ -257,6 +257,7 @@ header{
   border:1px solid var(--border);
   background: var(--card2);
   color: var(--muted);
+  font-family: inherit; font-size:14px; font-weight:900;
   transition: all .15s;
 }
 .c-count-btn:active{transform: translateY(1px)}

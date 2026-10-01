@@ -382,10 +382,7 @@ export default function Home() {
                       aria-label={`${c.name}をカウントだけ記録`}
                       title="カウントだけ記録（お金なし）"
                       onClick={() => handleChallenge(c, true)}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M4 4v16M9 4v16M14 4v16M19 4v16M22 6 2 18" />
-                      </svg>
+                      +1
                     </button>
                   </div>
                 )
@@ -476,10 +473,21 @@ export default function Home() {
         />
       )}
 
-      {modal?.type === 'detail' && modal.txId && (
+      {modal?.type === 'detail' && modal.txId && data.transactions.some(t => t.id === modal.txId) && (
         <DetailModal
           tx={data.transactions.find(t => t.id === modal.txId)!}
           onClose={() => setModal(null)}
+          onChangeDate={async (date) => {
+            const tx = data.transactions.find(t => t.id === modal.txId)!
+            if(tx.challengeId && data.transactions.some(t =>
+              t.id !== tx.id && t.challengeId === tx.challengeId && t.accountId === tx.accountId && t.date === date)){
+              alert('その日はもうこのチャレンジを記録ずみです')
+              return
+            }
+            setModal(null)
+            await saveData({ ...data, transactions: data.transactions.map(t => t.id === tx.id ? { ...t, date } : t) })
+            toast('日付を変更しました')
+          }}
           onDelete={async () => {
             const newData = { ...data, transactions: data.transactions.filter(t => t.id !== modal.txId) }
             setModal(null)
@@ -688,13 +696,16 @@ function AddModal({ type, data, viewPeriod, onClose, onSave }: {
   )
 }
 
-function DetailModal({ tx, onClose, onDelete }: {
+function DetailModal({ tx, onClose, onDelete, onChangeDate }: {
   tx: Transaction
   onClose: () => void
   onDelete: () => void
+  onChangeDate: (date: string) => void
 }){
+  const [date, setDate] = useState(tx.date)
   const cat = tx.category ? tx.category : (tx.type === 'income' ? '入金' : '支出')
   const memo = tx.memo && tx.memo.trim() ? tx.memo : '—'
+  const dateChanged = !!date && date !== tx.date
 
   return (
     <div className="overlay show" onClick={(e) => { if(e.target === e.currentTarget) onClose() }}>
@@ -709,7 +720,7 @@ function DetailModal({ tx, onClose, onDelete }: {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 900 }}>
-                    {tx.date} / {cat}
+                    {cat}
                   </div>
                   <div style={{ marginTop: 6, fontSize: 16, fontWeight: 900, color: 'var(--text)' }}>
                     {memo}
@@ -721,12 +732,20 @@ function DetailModal({ tx, onClose, onDelete }: {
               </div>
             </div>
           </div>
+          <div className="field full" style={{ marginTop: 12 }}>
+            <label>日付</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
           <div className="divider"></div>
           <div className="hint">※削除すると元に戻せません。</div>
         </div>
         <div className="actionsRow">
-          <button className="btn" onClick={onClose}>閉じる</button>
           <button className="btn danger" onClick={onDelete}>削除</button>
+          {dateChanged ? (
+            <button className="btn primary" onClick={() => onChangeDate(date)}>日付を保存</button>
+          ) : (
+            <button className="btn" onClick={onClose}>閉じる</button>
+          )}
         </div>
       </div>
     </div>
