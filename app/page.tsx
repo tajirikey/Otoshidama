@@ -18,6 +18,7 @@ type Transaction = {
   memo: string
   createdAt: string
   challengeId?: string
+  countOnly?: boolean
 }
 type Challenge = { id: string; name: string; reward: number }
 type AppData = {
@@ -120,8 +121,8 @@ function TxRow({ t, onClick }: { t: Transaction; onClick: () => void }){
           <span className="memo">{memo}</span>
         </div>
       </div>
-      <div className={`amt ${t.type}`}>
-        {t.type === 'income' ? '+' : '-'}{fmtJPY.format(t.amount)}
+      <div className={`amt ${t.countOnly ? 'count' : t.type}`}>
+        {t.countOnly ? 'カウント' : `${t.type === 'income' ? '+' : '-'}${fmtJPY.format(t.amount)}`}
       </div>
     </div>
   )
@@ -266,7 +267,7 @@ export default function Home() {
   const today = todayISO()
   const challengeTx = data.transactions.filter(t => t.challengeId && t.accountId === activeAccount.id)
 
-  async function handleChallenge(c: Challenge){
+  async function handleChallenge(c: Challenge, countOnly: boolean){
     if(!data) return
     if(challengeTx.some(t => t.challengeId === c.id && t.date === today)){
       toast('今日はもう記録ずみです')
@@ -277,14 +278,15 @@ export default function Home() {
       accountId: activeAccount.id,
       type: 'income',
       date: today,
-      amount: c.reward,
+      amount: countOnly ? 0 : c.reward,
       category: 'チャレンジ',
       memo: c.name,
       challengeId: c.id,
       createdAt: new Date().toISOString(),
+      ...(countOnly ? { countOnly: true } : {}),
     }
     await saveData({ ...data, transactions: [...data.transactions, tx] })
-    toast(`${c.name} +${fmtJPY.format(c.reward)}`)
+    toast(countOnly ? `${c.name} をカウントしました` : `${c.name} +${fmtJPY.format(c.reward)}`)
   }
 
   return (
@@ -365,14 +367,27 @@ export default function Home() {
                 const count = challengeTx.filter(t => t.challengeId === c.id).length
                 const done = challengeTx.some(t => t.challengeId === c.id && t.date === today)
                 return (
-                  <button key={c.id} type="button"
-                    className={`challenge${done ? ' done' : ''}`}
-                    disabled={done}
-                    onClick={() => handleChallenge(c)}>
-                    <span className="c-name">{c.name}</span>
-                    <span className="c-reward">+{fmtJPY.format(c.reward)}</span>
-                    <span className="c-count">{done ? `今日クリア！ ・ ${count}回` : `${count}回`}</span>
-                  </button>
+                  <div key={c.id} className="challenge-wrap">
+                    <button type="button"
+                      className={`challenge${done ? ' done' : ''}`}
+                      disabled={done}
+                      onClick={() => handleChallenge(c, false)}>
+                      <span className="c-name">{c.name}</span>
+                      <span className="c-reward">+{fmtJPY.format(c.reward)}</span>
+                      <span className="c-count">{done ? `今日クリア！ ・ ${count}回` : `${count}回`}</span>
+                    </button>
+                    <button type="button"
+                      className="c-count-btn"
+                      disabled={done}
+                      aria-label={`${c.name}をカウントだけ記録`}
+                      title="カウントだけ記録（お金なし）"
+                      onClick={() => handleChallenge(c, true)}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M4 4v16M9 4v16M14 4v16M19 4v16M22 6 2 18" />
+                      </svg>
+                    </button>
+                  </div>
                 )
               })}
             </div>
@@ -700,8 +715,8 @@ function DetailModal({ tx, onClose, onDelete }: {
                     {memo}
                   </div>
                 </div>
-                <div className={`amt ${tx.type}`} style={{ fontSize: 16 }}>
-                  {tx.type === 'income' ? '+' : '-'}{fmtJPY.format(tx.amount)}
+                <div className={`amt ${tx.countOnly ? 'count' : tx.type}`} style={{ fontSize: 16 }}>
+                  {tx.countOnly ? 'カウントのみ' : `${tx.type === 'income' ? '+' : '-'}${fmtJPY.format(tx.amount)}`}
                 </div>
               </div>
             </div>
