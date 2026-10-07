@@ -19,6 +19,8 @@ type Transaction = {
   createdAt: string
   challengeId?: string
   countOnly?: boolean
+  value?: number      // カウント記録1回分の金額（たまっている金額に加算）
+  cashOut?: boolean   // チャレンジ現金化の入金
 }
 type Challenge = { id: string; name: string; reward: number }
 type AppData = {
@@ -109,6 +111,18 @@ function groupByMonth(list: Transaction[]): Map<string, Transaction[]>{
   return map
 }
 
+// 換金できる金額 = 金額つきカウントの合計 − 換金済みの合計
+// （value のない古いカウント記録や、以前の報酬つき記録は含めない）
+function challengePool(transactions: Transaction[], accountId: string){
+  let pool = 0
+  for(const t of transactions){
+    if(t.accountId !== accountId) continue
+    if(t.challengeId && t.countOnly && typeof t.value === 'number') pool += t.value
+    if(t.cashOut) pool -= Number(t.amount) || 0
+  }
+  return pool
+}
+
 function TxRow({ t, onClick }: { t: Transaction; onClick: () => void }){
   const cat = t.category ? t.category : (t.type === 'income' ? '入金' : '支出')
   const memo = t.memo && t.memo.trim() ? t.memo : cat
@@ -137,7 +151,7 @@ export default function Home() {
   const [viewPeriod, setViewPeriod] = useState<Period>('year')
   const [toastMsg, setToastMsg] = useState('')
   const [modal, setModal] = useState<null | {
-    type: 'add' | 'detail' | 'backup' | 'challenges'
+    type: 'add' | 'detail' | 'backup' | 'challenges' | 'cashout'
     txType?: TxType
     txId?: string
   }>(null)
@@ -266,8 +280,9 @@ export default function Home() {
   const monthGroups = groupByMonth(sortedTx)
   const today = todayISO()
   const challengeTx = data.transactions.filter(t => t.challengeId && t.accountId === activeAccount.id)
+  const pool = challengePool(data.transactions, activeAccount.id)
 
-  async function handleChallenge(c: Challenge, countOnly: boolean){
+  async function handleChallenge(c: Challenge){
     if(!data) return
     if(challengeTx.some(t => t.challengeId === c.id && t.date === today)){
       toast('今日はもう記録ずみです')
@@ -278,15 +293,16 @@ export default function Home() {
       accountId: activeAccount.id,
       type: 'income',
       date: today,
-      amount: countOnly ? 0 : c.reward,
+      amount: 0,
       category: 'チャレンジ',
       memo: c.name,
       challengeId: c.id,
+      countOnly: true,
+      value: c.reward,
       createdAt: new Date().toISOString(),
-      ...(countOnly ? { countOnly: true } : {}),
     }
     await saveData({ ...data, transactions: [...data.transactions, tx] })
-    toast(countOnly ? `${c.name} をカウントしました` : `${c.name} +${fmtJPY.format(c.reward)}`)
+    toast(`${c.name} +1回（たまった金額 ${fmtJPY.format(pool + c.reward)}）`)
   }
 
   return (
@@ -355,6 +371,16 @@ export default function Home() {
             <h2 style={{ margin: 0 }}>チャレンジ</h2>
             <button className="btn small ghost" onClick={() => setModal({ type: 'challenges' })}>設定</button>
           </div>
+          {(data.challenges.length > 0 || pool !== 0) && (
+            <div className="card challenge-pool">
+              <div>
+                <div className="label">たまっている金額</div>
+                <div className="value">{fmtJPY.format(pool)}</div>
+              </div>
+              <button className="btn primary small" disabled={pool <= 0}
+                onClick={() => setModal({ type: 'cashout' })}>換金</button>
+            </div>
+          )}
           {data.challenges.length === 0 ? (
             <div className="card">
               <div className="inner" style={{ padding: '12px 14px' }}>
@@ -367,24 +393,14 @@ export default function Home() {
                 const count = challengeTx.filter(t => t.challengeId === c.id).length
                 const done = challengeTx.some(t => t.challengeId === c.id && t.date === today)
                 return (
-                  <div key={c.id} className="challenge-wrap">
-                    <button type="button"
-                      className={`challenge${done ? ' done' : ''}`}
-                      disabled={done}
-                      onClick={() => handleChallenge(c, false)}>
-                      <span className="c-name">{c.name}</span>
-                      <span className="c-reward">+{fmtJPY.format(c.reward)}</span>
-                      <span className="c-count">{done ? `今日クリア！ ・ ${count}回` : `${count}回`}</span>
-                    </button>
-                    <button type="button"
-                      className="c-count-btn"
-                      disabled={done}
-                      aria-label={`${c.name}をカウントだけ記録`}
-                      title="カウントだけ記録（お金なし）"
-                      onClick={() => handleChallenge(c, true)}>
-                      +1
-                    </button>
-                  </div>
+                  <button key={c.id} type="button"
+                    className={`challenge${done ? ' done' : ''}`}
+                    disabled={done}
+                    onClick={() => handleChallenge(c)}>
+                    <span className="c-name">{c.name}</span>
+                    <span className="c-reward">1回 {fmtJPY.format(c.reward)}</span>
+                    <span className="c-count">{done ? `今日クリア！ ・ ${count}回` : `${count}回`}</span>
+                  </button>
                 )
               })}
             </div>
@@ -510,6 +526,29 @@ export default function Home() {
         />
       )}
 
+      {modal?.type === 'cashout' && (
+        <CashOutModal
+          pool={pool}
+          onClose={() => setModal(null)}
+          onSave={async (amount) => {
+            const tx: Transaction = {
+              id: uid(),
+              accountId: activeAccount.id,
+              type: 'income',
+              date: todayISO(),
+              amount,
+              category: 'チャレンジ',
+              memo: 'チャレンジ現金化',
+              cashOut: true,
+              createdAt: new Date().toISOString(),
+            }
+            setModal(null)
+            await saveData({ ...data, transactions: [...data.transactions, tx] })
+            toast(`${fmtJPY.format(amount)} を換金しました`)
+          }}
+        />
+      )}
+
       {modal?.type === 'challenges' && (
         <ChallengeModal
           challenges={data.challenges}
@@ -522,6 +561,53 @@ export default function Home() {
         />
       )}
     </>
+  )
+}
+
+function CashOutModal({ pool, onClose, onSave }: {
+  pool: number
+  onClose: () => void
+  onSave: (amount: number) => void
+}){
+  const [amount, setAmount] = useState(String(pool))
+
+  function handleSave(){
+    const amt = Math.floor(Number(amount))
+    if(!Number.isFinite(amt) || amt <= 0){
+      alert('金額を入力してください')
+      return
+    }
+    if(amt > pool){
+      alert(`換金できるのは ${fmtJPY.format(pool)} までです`)
+      return
+    }
+    onSave(amt)
+  }
+
+  return (
+    <div className="overlay show" onClick={(e) => { if(e.target === e.currentTarget) onClose() }}>
+      <div className="sheet">
+        <div className="sheet-header">
+          <div className="h">チャレンジを換金</div>
+          <button className="x" onClick={onClose}>×</button>
+        </div>
+        <div className="body">
+          <div className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
+            たまっている金額：<b style={{ color: 'var(--text)' }}>{fmtJPY.format(pool)}</b>
+          </div>
+          <div className="field full">
+            <label>換金する金額（円）</label>
+            <input type="number" inputMode="numeric" min="1" max={pool}
+              value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+          </div>
+          <div className="hint">換金した金額は「チャレンジ現金化」として入金に記録され、残高に加わります。</div>
+        </div>
+        <div className="actionsRow">
+          <button className="btn" onClick={onClose}>キャンセル</button>
+          <button className="btn primary" onClick={handleSave}>換金する</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -577,7 +663,7 @@ function ChallengeModal({ challenges, onClose, onSave }: {
             onClick={() => setItems([...items, { id: uid(), name: '', reward: '' }])}>
             ＋ チャレンジを追加
           </button>
-          <div className="hint">チャレンジは1つにつき1日1回まで記録できます。報酬を変えても、過去の記録の金額は変わりません。</div>
+          <div className="hint">チャレンジは1つにつき1日1回まで記録できます。報酬を変えても、すでにたまった金額は変わりません。</div>
         </div>
         <div className="actionsRow">
           <button className="btn" onClick={onClose}>キャンセル</button>
@@ -727,7 +813,9 @@ function DetailModal({ tx, onClose, onDelete, onChangeDate }: {
                   </div>
                 </div>
                 <div className={`amt ${tx.countOnly ? 'count' : tx.type}`} style={{ fontSize: 16 }}>
-                  {tx.countOnly ? 'カウントのみ' : `${tx.type === 'income' ? '+' : '-'}${fmtJPY.format(tx.amount)}`}
+                  {tx.countOnly
+                    ? (typeof tx.value === 'number' ? `カウント（${fmtJPY.format(tx.value)}分）` : 'カウントのみ')
+                    : `${tx.type === 'income' ? '+' : '-'}${fmtJPY.format(tx.amount)}`}
                 </div>
               </div>
             </div>

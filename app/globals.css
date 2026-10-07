@@ -229,12 +229,20 @@ header{
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap:10px;
 }
-.challenge-wrap{position:relative; display:flex;}
+.challenge-pool{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  margin-bottom:10px;
+}
+.challenge-pool .label{font-size:12px; color:var(--muted); font-weight:700; margin-bottom:4px;}
+.challenge-pool .value{font-size:22px; font-weight:900; color:var(--text);}
+.challenge-pool .btn{min-width:84px;}
+.btn:disabled{opacity:.45; cursor:default;}
 .challenge{
   appearance:none; cursor:pointer; font-family:inherit; text-align:left;
-  width:100%;
   display:flex; flex-direction:column; gap:4px;
-  padding:12px 50px 12px 12px;
+  padding:12px;
   border-radius:14px;
   border:1px solid var(--border);
   background: var(--card);
@@ -244,24 +252,10 @@ header{
 }
 .challenge:active{transform: translateY(1px)}
 .challenge .c-name{font-size:14px; font-weight:800; word-break:break-word;}
-.challenge .c-reward{font-size:13px; font-weight:900; color:var(--ok);}
+.challenge .c-reward{font-size:12px; font-weight:800; color:var(--muted);}
 .challenge .c-count{font-size:11px; font-weight:700; color:var(--muted);}
 .challenge.done{background: var(--card2); box-shadow:none; cursor:default;}
 .challenge.done .c-name::before{content:'✓ '; color:var(--ok);}
-.c-count-btn{
-  position:absolute; top:8px; right:8px;
-  width:36px; height:36px;
-  display:flex; align-items:center; justify-content:center;
-  appearance:none; cursor:pointer; padding:0;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background: var(--card2);
-  color: var(--muted);
-  font-family: inherit; font-size:14px; font-weight:900;
-  transition: all .15s;
-}
-.c-count-btn:active{transform: translateY(1px)}
-.c-count-btn:disabled{opacity:.4; cursor:default;}
 .amt.count{color:var(--muted)}
 .challenge-edit{
   display:grid;
