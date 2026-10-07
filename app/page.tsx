@@ -93,6 +93,7 @@ function sortTxDesc(list: Transaction[]){
 function sums(list: Transaction[]){
   let income = 0, expense = 0
   for(const t of list){
+    if(t.cashOut) continue  // 換金は記録のみで残高には含めない
     const amt = Number(t.amount) || 0
     if(t.type === 'income') income += amt
     else expense += amt
@@ -135,8 +136,10 @@ function TxRow({ t, onClick }: { t: Transaction; onClick: () => void }){
           <span className="memo">{memo}</span>
         </div>
       </div>
-      <div className={`amt ${t.countOnly ? 'count' : t.type}`}>
-        {t.countOnly ? 'カウント' : `${t.type === 'income' ? '+' : '-'}${fmtJPY.format(t.amount)}`}
+      <div className={`amt ${t.countOnly || t.cashOut ? 'count' : t.type}`}>
+        {t.countOnly ? 'カウント'
+          : t.cashOut ? `換金 ${fmtJPY.format(t.amount)}`
+          : `${t.type === 'income' ? '+' : '-'}${fmtJPY.format(t.amount)}`}
       </div>
     </div>
   )
@@ -600,7 +603,7 @@ function CashOutModal({ pool, onClose, onSave }: {
             <input type="number" inputMode="numeric" min="1" max={pool}
               value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
           </div>
-          <div className="hint">換金した金額は「チャレンジ現金化」として入金に記録され、残高に加わります。</div>
+          <div className="hint">換金すると明細に「チャレンジ現金化」として記録されます。残高は変わりません。</div>
         </div>
         <div className="actionsRow">
           <button className="btn" onClick={onClose}>キャンセル</button>
@@ -812,9 +815,10 @@ function DetailModal({ tx, onClose, onDelete, onChangeDate }: {
                     {memo}
                   </div>
                 </div>
-                <div className={`amt ${tx.countOnly ? 'count' : tx.type}`} style={{ fontSize: 16 }}>
+                <div className={`amt ${tx.countOnly || tx.cashOut ? 'count' : tx.type}`} style={{ fontSize: 16 }}>
                   {tx.countOnly
                     ? (typeof tx.value === 'number' ? `カウント（${fmtJPY.format(tx.value)}分）` : 'カウントのみ')
+                    : tx.cashOut ? `換金 ${fmtJPY.format(tx.amount)}`
                     : `${tx.type === 'income' ? '+' : '-'}${fmtJPY.format(tx.amount)}`}
                 </div>
               </div>
