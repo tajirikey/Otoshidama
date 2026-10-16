@@ -229,6 +229,7 @@ header{
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap:10px;
 }
+.pool-note{margin-top:6px; font-size:12px; font-weight:700; color:var(--muted);}
 .cashout-btn{min-width:84px; flex:0 0 auto;}
 .btn:disabled{opacity:.45; cursor:default;}
 .challenge{

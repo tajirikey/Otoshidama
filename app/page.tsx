@@ -277,13 +277,15 @@ export default function Home() {
   const filteredTx = filterTx(data.transactions, activeAccount.id, viewPeriod)
   const s = sums(filteredTx)
   const totalCount = data.transactions.filter(t => t.accountId === activeAccount.id).length
-  const meterPercent = s.income > 0 ? Math.max(0, Math.min(100, (s.balance / s.income) * 100)) : 0
+  const pool = challengePool(data.transactions, activeAccount.id)
+  const total = s.balance + pool  // あといくら = 残高 + たまっているチャレンジ金額
+  const meterBase = s.income + Math.max(pool, 0)
+  const meterPercent = meterBase > 0 ? Math.max(0, Math.min(100, (total / meterBase) * 100)) : 0
   const meterClass = meterPercent < 30 ? 'danger' : meterPercent < 60 ? 'warn' : ''
   const sortedTx = sortTxDesc(filteredTx)
   const monthGroups = groupByMonth(sortedTx)
   const today = todayISO()
   const challengeTx = data.transactions.filter(t => t.challengeId && t.accountId === activeAccount.id)
-  const pool = challengePool(data.transactions, activeAccount.id)
 
   async function handleChallenge(c: Challenge){
     if(!data) return
@@ -337,7 +339,10 @@ export default function Home() {
             <div className="balance">
               <div>
                 <div className="label">あといくら</div>
-                <div className="amount">{fmtJPY.format(s.balance)}</div>
+                <div className="amount">{fmtJPY.format(total)}</div>
+                {pool !== 0 && (
+                  <div className="pool-note">うちチャレンジ {fmtJPY.format(pool)}</div>
+                )}
               </div>
               {(data.challenges.length > 0 || pool !== 0) && (
                 <button className="btn primary small cashout-btn" disabled={pool <= 0}
@@ -476,6 +481,7 @@ export default function Home() {
           type={modal.txType!}
           data={data}
           viewPeriod={viewPeriod}
+          pool={pool}
           onClose={() => setModal(null)}
           onSave={async (tx) => {
             const newData = { ...data, transactions: [...data.transactions, tx] }
@@ -671,10 +677,11 @@ function ChallengeModal({ challenges, onClose, onSave }: {
   )
 }
 
-function AddModal({ type, data, viewPeriod, onClose, onSave }: {
+function AddModal({ type, data, viewPeriod, pool, onClose, onSave }: {
   type: TxType
   data: AppData
   viewPeriod: Period
+  pool: number
   onClose: () => void
   onSave: (tx: Transaction) => void
 }){
@@ -691,8 +698,9 @@ function AddModal({ type, data, viewPeriod, onClose, onSave }: {
   if(showPreview){
     const ftx = filterTx(data.transactions, data.activeAccountId, viewPeriod)
     const s = sums(ftx)
-    previewBalance = s.balance - inputAmt
-    previewPercent = s.income > 0 ? Math.max(0, Math.min(100, (previewBalance / s.income) * 100)) : 0
+    previewBalance = s.balance + pool - inputAmt
+    const base = s.income + Math.max(pool, 0)
+    previewPercent = base > 0 ? Math.max(0, Math.min(100, (previewBalance / base) * 100)) : 0
   }
   const previewClass = previewPercent < 30 ? 'danger' : previewPercent < 60 ? 'warn' : ''
 
