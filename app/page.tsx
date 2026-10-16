@@ -339,6 +339,10 @@ export default function Home() {
                 <div className="label">あといくら</div>
                 <div className="amount">{fmtJPY.format(s.balance)}</div>
               </div>
+              {(data.challenges.length > 0 || pool !== 0) && (
+                <button className="btn primary small cashout-btn" disabled={pool <= 0}
+                  onClick={() => setModal({ type: 'cashout' })}>換金</button>
+              )}
             </div>
 
             <div className="meter-wrap">
@@ -374,16 +378,6 @@ export default function Home() {
             <h2 style={{ margin: 0 }}>チャレンジ</h2>
             <button className="btn small ghost" onClick={() => setModal({ type: 'challenges' })}>設定</button>
           </div>
-          {(data.challenges.length > 0 || pool !== 0) && (
-            <div className="card challenge-pool">
-              <div>
-                <div className="label">たまっている金額</div>
-                <div className="value">{fmtJPY.format(pool)}</div>
-              </div>
-              <button className="btn primary small" disabled={pool <= 0}
-                onClick={() => setModal({ type: 'cashout' })}>換金</button>
-            </div>
-          )}
           {data.challenges.length === 0 ? (
             <div className="card">
               <div className="inner" style={{ padding: '12px 14px' }}>
